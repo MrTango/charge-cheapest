@@ -1,0 +1,26 @@
+{
+  "Stop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/done-check.sh",
+          "timeout": 300
+        }
+      ]
+    }
+  ],
+  "SubagentStop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/done-check.sh",
+          "timeout": 300
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,412 @@
+# Charge Cheapest
+#
+# This package creates all helpers needed for the Charge Cheapest
+# blueprint. After adding this package to your Home Assistant configuration,
+# restart HA to create all entities automatically.
+#
+# Usage:
+#   1. Copy this folder to config/packages/
+#   2. Add to configuration.yaml:
+#      homeassistant:
+#        packages: !include_dir_named packages
+#   3. Restart Home Assistant
+#
+# All entities use the charge_cheapest_ prefix for consistent naming.
+
+# Entity ID Configuration Helpers
+# These input_text helpers store the entity IDs of your actual sensors/switches.
+# Configure these via the dashboard Configuration tab.
+input_text:
+  charge_cheapest_price_sensor_id:
+    name: Price Sensor ID
+    icon: mdi:currency-eur
+    max: 255
+    initial: ""
+
+  charge_cheapest_soc_sensor_id:
+    name: Battery SOC Sensor ID
+    icon: mdi:battery-50
+    max: 255
+    initial: ""
+
+  charge_cheapest_switch_id:
+    name: Battery Charging Switch ID
+    icon: mdi:flash
+    max: 255
+    initial: ""
+
+  solar_forecast_storage:
+    name: Solar Forecast Storage
+    icon: mdi:weather-sunny
+    max: 255
+    initial: ""
+
+# Control Input Number Helpers
+# Configure charging parameters and targets.
+input_number:
+  battery_charging_power:
+    name: Battery Charging Power
+    icon: mdi:lightning-bolt
+    min: 500
+    max: 15000
+    step: 100
+    unit_of_measurement: W
+    mode: slider
+    initial: 3000
+
+  user_soc_target:
+    name: User SOC Target
+    icon: mdi:battery-charging-high
+    min: 0
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    mode: slider
+    initial: 60
+
+  solar_panel_azimuth:
+    name: Solar Panel Azimuth
+    icon: mdi:compass
+    min: 0
+    max: 360
+    step: 1
+    unit_of_measurement: "deg"
+    mode: slider
+    initial: 180
+
+  solar_panel_tilt:
+    name: Solar Panel Tilt
+    icon: mdi:angle-acute
+    min: 0
+    max: 90
+    step: 1
+    unit_of_measurement: "deg"
+    mode: slider
+    initial: 30
+
+  solar_peak_power_kwp:
+    name: Solar Peak Power
+    icon: mdi:solar-power
+    min: 0
+    max: 50
+    step: 0.1
+    unit_of_measurement: kWp
+    mode: slider
+    initial: 5.0
+
+# Control Input Boolean Helpers
+# Toggle switches for automation control.
+input_boolean:
+  charge_cheapest_enabled:
+    name: Charging Enabled
+    icon: mdi:power
+
+  charge_cheapest_force_now:
+    name: Force Charge Now
+    icon: mdi:battery-charging-100
+
+  charge_cheapest_skip_next:
+    name: Skip Next Charge
+    icon: mdi:battery-off
+
+# Charging Mode Selection
+# Controls how the automation determines charging windows.
+input_select:
+  charge_cheapest_mode:
+    name: Charging Mode
+    icon: mdi:cog
+    options:
+      - Automatic
+      - Solar Optimized
+      - Manual
+      - Disabled
+    initial: Automatic
+
+# Manual Scheduling Helpers
+# For manual mode, specify exact charging times.
+input_datetime:
+  charge_cheapest_manual_start:
+    name: Manual Charge Start
+    icon: mdi:clock-start
+    has_date: false
+    has_time: true
+
+  charge_cheapest_manual_end:
+    name: Manual Charge End
+    icon: mdi:clock-end
+    has_date: false
+    has_time: true
+
+# Template Sensors for Dashboard Data
+# These sensors provide dynamic values for the dashboard using the
+# states(states('input_text.xxx')) pattern for entity resolution.
+template:
+  - sensor:
+      # Charging Status Sensor
+      # States: Idle, Scheduled, Charging, Disabled, Error
+      - name: Charging Status
+        unique_id: charge_cheapest_status
+        icon: mdi:battery-sync
+        state: >-
+          {% set enabled = is_state('input_boolean.charge_cheapest_enabled', 'on') %}
+          {% set mode = states('input_select.charge_cheapest_mode') %}
+          {% set switch_id = states('input_text.charge_cheapest_switch_id') %}
+          {% set soc_id = states('input_text.charge_cheapest_soc_sensor_id') %}
+          {% if mode == 'Disabled' or not enabled %}
+            Disabled
+          {% elif switch_id == '' or soc_id == '' %}
+            Error
+          {% elif states(switch_id) == 'unavailable' or states(soc_id) == 'unavailable' %}
+            Error
+          {% elif states(switch_id) == 'on' %}
+            Charging
+          {% else %}
+            Idle
+          {% endif %}
+
+      # Next Charging Window Sensor
+      # Shows formatted time range for next scheduled charging.
+      - name: Next Charging Window
+        unique_id: charge_cheapest_next_window
+        icon: mdi:clock-time-four
+        state: >-
+          {% set mode = states('input_select.charge_cheapest_mode') %}
+          {% if mode == 'Manual' %}
+            {% set start = states('input_datetime.charge_cheapest_manual_start') %}
+            {% set end = states('input_datetime.charge_cheapest_manual_end') %}
+            {% if start and end %}
+              {{ start[:5] }} - {{ end[:5] }}
+            {% else %}
+              Not configured
+            {% endif %}
+          {% elif mode == 'Disabled' %}
+            Disabled
+          {% else %}
+            Automatic
+          {% endif %}
+
+      # Current Price Sensor
+      # Reads current electricity price from configured price sensor.
+      - name: Current Price
+        unique_id: charge_cheapest_current_price
+        icon: mdi:currency-eur
+        unit_of_measurement: "EUR/kWh"
+        device_class: monetary
+        state: >-
+          {% set sensor_id = states('input_text.charge_cheapest_price_sensor_id') %}
+          {% if sensor_id == '' %}
+            unavailable
+          {% else %}
+            {% set price = states(sensor_id) | float(-1) %}
+            {% if price >= 0 %}
+              {{ price | round(4) }}
+            {% else %}
+              unavailable
+            {% endif %}
+          {% endif %}
+
+      # Price Range Today Sensor
+      # Shows minimum and maximum prices for the current day.
+      - name: Price Range Today
+        unique_id: charge_cheapest_price_range
+        icon: mdi:chart-line-variant
+        state: >-
+          {% set sensor_id = states('input_text.charge_cheapest_price_sensor_id') %}
+          {% if sensor_id == '' %}
+            unavailable
+          {% else %}
+            {% set today_prices = state_attr(sensor_id, 'today') %}
+            {% if today_prices is not none and today_prices | length > 0 %}
+              {% set prices = today_prices | map(attribute='total') | list %}
+              {% set min_price = prices | min | round(3) %}
+              {% set max_price = prices | max | round(3) %}
+              {{ min_price }} - {{ max_price }}
+            {% else %}
+              unavailable
+            {% endif %}
+          {% endif %}
+
+      # Recommended SOC Sensor
+      # Calculates optimal SOC based on solar forecast (if available).
+      - name: Recommended SOC
+        unique_id: charge_cheapest_recommended_soc
+        icon: mdi:battery-charging-medium
+        unit_of_measurement: "%"
+        state: >-
+          {% set mode = states('input_select.charge_cheapest_mode') %}
+          {% set user_target = states('input_number.user_soc_target') | float(60) %}
+          {% set solar_kwp = states('input_number.solar_peak_power_kwp') | float(0) %}
+          {% set forecast_storage = states('input_text.solar_forecast_storage') %}
+          {% if mode == 'Solar Optimized' and solar_kwp > 0 and forecast_storage != '' %}
+            {% set forecast_parts = forecast_storage.split('|') %}
+            {% if forecast_parts | length >= 1 %}
+              {% set forecast_kwh = forecast_parts[0] | float(-1) %}
+              {% if forecast_kwh >= 0 %}
+                {% set morning_consumption = 3 %}
+                {% set excess = forecast_kwh - morning_consumption %}
+                {% set reduction = (excess / 10) * 100 %}
+                {% set calculated = user_target - reduction %}
+                {{ [[calculated, 20] | max, user_target] | min | round(0) }}
+              {% else %}
+                {{ user_target | round(0) }}
+              {% endif %}
+            {% else %}
+              {{ user_target | round(0) }}
+            {% endif %}
+          {% else %}
+            {{ user_target | round(0) }}
+          {% endif %}
+
+      # Estimated Savings Today Sensor
+      # Calculates potential savings versus average grid price.
+      - name: Estimated Savings Today
+        unique_id: charge_cheapest_savings_today
+        icon: mdi:piggy-bank
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% set sensor_id = states('input_text.charge_cheapest_price_sensor_id') %}
+          {% set charging_power = states('input_number.battery_charging_power') | float(3000) %}
+          {% if sensor_id == '' %}
+            0
+          {% else %}
+            {% set today_prices = state_attr(sensor_id, 'today') %}
+            {% if today_prices is not none and today_prices | length > 0 %}
+              {% set prices = today_prices | map(attribute='total') | list %}
+              {% set avg_price = prices | sum / prices | length %}
+              {% set min_price = prices | min %}
+              {% set hours_charging = 3 %}
+              {% set kwh_charged = (charging_power / 1000) * hours_charging %}
+              {% set savings = (avg_price - min_price) * kwh_charged %}
+              {{ savings | round(2) }}
+            {% else %}
+              0
+            {% endif %}
+          {% endif %}
+
+      # Charging Hours Today (history_stats)
+      - name: Charging Hours Today
+        unique_id: charge_cheapest_hours_today
+        icon: mdi:timer
+        unit_of_measurement: "h"
+        state: >-
+          {% set switch_id = states('input_text.charge_cheapest_switch_id') %}
+          {% if switch_id == '' %}
+            0
+          {% else %}
+            {{ states('sensor.charge_cheapest_hours_today_stat') | float(0) | round(2) }}
+          {% endif %}
+
+      # Charging Count Today
+      - name: Charging Count Today
+        unique_id: charge_cheapest_count_today
+        icon: mdi:counter
+        state: >-
+          {% set switch_id = states('input_text.charge_cheapest_switch_id') %}
+          {% if switch_id == '' %}
+            0
+          {% else %}
+            {{ states('sensor.charge_cheapest_count_today_stat') | default(0) }}
+          {% endif %}
+
+  # Binary Sensors for Dashboard Status
+  - binary_sensor:
+      # Is Charging Binary Sensor
+      # True when battery charging switch is on.
+      - name: Is Charging
+        unique_id: charge_cheapest_is_charging
+        icon: mdi:battery-charging
+        device_class: battery_charging
+        state: >-
+          {% set switch_id = states('input_text.charge_cheapest_switch_id') %}
+          {% if switch_id == '' %}
+            false
+          {% else %}
+            {{ states(switch_id) == 'on' }}
+          {% endif %}
+
+      # Is Cheap Hour Binary Sensor
+      # True when current price is below daily average.
+      - name: Is Cheap Hour
+        unique_id: charge_cheapest_is_cheap_hour
+        icon: mdi:cash-check
+        state: >-
+          {% set sensor_id = states('input_text.charge_cheapest_price_sensor_id') %}
+          {% if sensor_id == '' %}
+            false
+          {% else %}
+            {% set current_price = states(sensor_id) | float(-1) %}
+            {% set today_prices = state_attr(sensor_id, 'today') %}
+            {% if current_price >= 0 and today_prices is not none and today_prices | length > 0 %}
+              {% set prices = today_prices | map(attribute='total') | list %}
+              {% set avg_price = prices | sum / prices | length %}
+              {{ current_price < avg_price }}
+            {% else %}
+              false
+            {% endif %}
+          {% endif %}
+
+      # Tomorrow Prices Available Binary Sensor
+      # True when price sensor has tomorrow's price data.
+      - name: Prices Available Tomorrow
+        unique_id: charge_cheapest_prices_available
+        icon: mdi:calendar-arrow-right
+        state: >-
+          {% set sensor_id = states('input_text.charge_cheapest_price_sensor_id') %}
+          {% if sensor_id == '' %}
+            false
+          {% else %}
+            {% set tomorrow_data = state_attr(sensor_id, 'tomorrow') %}
+            {{ tomorrow_data is not none and tomorrow_data | length > 0 }}
+          {% endif %}
+
+      # Dependencies OK Binary Sensor
+      # True when all required entities are configured and responding.
+      - name: System Ready
+        unique_id: charge_cheapest_ready
+        icon: mdi:check-circle
+        device_class: connectivity
+        state: >-
+          {% set price_id = states('input_text.charge_cheapest_price_sensor_id') %}
+          {% set soc_id = states('input_text.charge_cheapest_soc_sensor_id') %}
+          {% set switch_id = states('input_text.charge_cheapest_switch_id') %}
+          {% if price_id == '' or soc_id == '' or switch_id == '' %}
+            false
+          {% else %}
+            {% set price_ok = states(price_id) not in ['unavailable', 'unknown'] %}
+            {% set soc_ok = states(soc_id) not in ['unavailable', 'unknown'] %}
+            {% set switch_ok = states(switch_id) not in ['unavailable', 'unknown'] %}
+            {{ price_ok and soc_ok and switch_ok }}
+          {% endif %}
+
+# History Statistics Sensors
+# Track charging behavior over time.
+sensor:
+  - platform: history_stats
+    name: Charge Cheapest Hours Today Stat
+    entity_id: binary_sensor.charge_cheapest_is_charging
+    state: "on"
+    type: time
+    start: "{{ now().replace(hour=0, minute=0, second=0) }}"
+    end: "{{ now() }}"
+
+  - platform: history_stats
+    name: Charge Cheapest Count Today Stat
+    entity_id: binary_sensor.charge_cheapest_is_charging
+    state: "on"
+    type: count
+    start: "{{ now().replace(hour=0, minute=0, second=0) }}"
+    end: "{{ now() }}"
+
+# Utility Meters
+# Track charging costs over different periods.
+utility_meter:
+  charge_cheapest_cost_daily:
+    source: sensor.charge_cheapest_savings_today
+    name: Charging Cost Daily
+    cycle: daily
+
+  charge_cheapest_cost_monthly:
+    source: sensor.charge_cheapest_savings_today
+    name: Charging Cost Monthly
+    cycle: monthly

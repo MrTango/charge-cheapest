@@ -1,0 +1,7 @@
+{
+  "name": "done-hook",
+  "version": "1.0.0",
+  "description": "Runs formatting, linting, and tests after agent completes work. Supports Python (RUFF, pytest) and JavaScript/TypeScript (ESLint, Prettier, Jest/Vitest).",
+  "author": "agent-os",
+  "hooks": "hooks/hooks.json"
+}

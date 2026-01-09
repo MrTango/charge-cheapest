@@ -1,0 +1,423 @@
+# Charge Cheapest (WIP!!!)
+
+A Home Assistant blueprint and package that automatically charges your battery during the cheapest electricity hours based on Tibber price data.
+
+## Features
+
+- **Night Charging Schedule** - Charge battery during overnight hours (default 23:00-06:00) at the cheapest prices
+- **Optional Day Schedule** - Secondary charging window for winter months (default 09:00-16:00)
+- **Cross-Midnight Support** - Properly handles overnight windows spanning two calendar days
+- **Evening Peak Protection** - Ensure minimum battery level before expensive peak hours
+- **Independent SOC Targets** - Configure separate charge targets for night and day schedules
+- **Dynamic Duration Calculation** - Automatically calculates charging time based on battery capacity and charging power
+- **Failure Handling** - Configurable behavior when price data is unavailable
+- **Flexible Notifications** - Toggle notifications for scheduled, started, completed, skipped, and error events
+- **Comprehensive Dashboard** - Monitor charging status, prices, and statistics
+- **Easy Setup Package** - Pre-configured helpers with UI-based entity configuration
+
+## Prerequisites
+
+### 1. Tibber Integration
+
+You need the [Tibber integration](https://www.home-assistant.io/integrations/tibber/) configured with a price sensor that provides `today` and `tomorrow` price attributes.
+
+Example sensor format:
+
+```yaml
+sensor.electricity_price:
+  state: 0.2866
+  today:
+    - total: 0.2696
+    - total: 0.2632
+    # ... 24 hours of prices
+  tomorrow:
+    - total: 0.2580
+    # ... available after ~13:00
+```
+
+### 2. cheapest-energy-hours Macro
+
+Install the [cheapest-energy-hours](https://github.com/TheFes/cheapest-energy-hours) Jinja macro by TheFes:
+
+**Via HACS (recommended):**
+
+1. Add https://github.com/TheFes/cheapest-energy-hours as a custom repository in HACS
+2. Install the "cheapest-energy-hours" template
+3. Restart Home Assistant
+
+**Manual installation:**
+
+1. Download `cheapest_energy_hours.jinja` from the repository
+2. Copy to `config/custom_templates/`
+3. Restart Home Assistant
+
+### 3. Battery Control Entities
+
+You need the following entities configured:
+
+- **Switch entity** - To enable/disable battery charging
+- **SOC sensor** - Current battery state of charge (%)
+- **Capacity sensor** - Battery maximum capacity (Wh or kWh)
+- **Input number** - Charging power setting (W)
+
+## Installation (8-Step Process)
+
+Follow these steps to install the complete Charge Cheapest system:
+
+### Step 1: Install cheapest-energy-hours Macro
+
+1. Open HACS in Home Assistant
+2. Go to **Automation** section
+3. Click the three-dot menu and select **Custom repositories**
+4. Add `https://github.com/TheFes/cheapest-energy-hours` as a **Template** category
+5. Search for "cheapest-energy-hours" and install it
+6. Restart Home Assistant
+
+### Step 2: Copy Packages Folder
+
+1. Download this repository or clone it
+2. Copy the entire `packages/` folder to your Home Assistant `config/` directory
+3. Your structure should look like:
+   ```
+   config/
+   ├── packages/
+   │   └── cheapest_battery_charging/
+   │       └── cheapest_battery_charging.yaml
+   ├── configuration.yaml
+   └── ...
+   ```
+
+### Step 3: Add Packages Include
+
+Add the following to your `configuration.yaml`:
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+If you already have a `homeassistant:` section, just add the `packages:` line under it.
+
+### Step 4: Restart Home Assistant
+
+1. Go to **Settings** > **System** > **Restart**
+2. Click **Restart** and wait for Home Assistant to reload
+3. All helper entities will be created automatically
+
+### Step 5: Import Dashboard
+
+1. Go to **Settings** > **Dashboards**
+2. Click **Add Dashboard** and create a new dashboard (e.g., "Battery Charging")
+3. Open the new dashboard
+4. Click the three-dot menu in the top right
+5. Select **Edit Dashboard**
+6. Click the three-dot menu again and select **Raw configuration editor**
+7. Delete any existing content
+8. Copy and paste the contents of `dashboards/charge_cheapest.yaml`
+9. Click **Save** and then **Done**
+
+### Step 6: Configure Entity IDs
+
+1. Open your new Battery Charging dashboard
+2. Navigate to the **Configuration** tab
+3. Enter your entity IDs in the configuration section:
+   - **Tibber Price Sensor**: e.g., `sensor.electricity_price`
+   - **Battery SOC Sensor**: e.g., `sensor.battery_soc`
+   - **Battery Charging Switch**: e.g., `switch.battery_charging`
+4. The validation indicators will turn green when entities are correctly configured
+
+### Step 7: Import Blueprint
+
+1. Go to **Settings** > **Automations & Scenes** > **Blueprints**
+2. Click **Import Blueprint**
+3. Paste this URL:
+   ```
+   https://github.com/your-username/charge-cheapest/blob/main/blueprints/automation/charge_cheapest.yaml
+   ```
+4. Click **Preview** and then **Import Blueprint**
+
+Or click the button below:
+
+[![Open your Home Assistant instance and show the blueprint import dialog](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fyour-username%2Fcharge-cheapest%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcharge_cheapest.yaml)
+
+### Step 8: Create Automation from Blueprint
+
+1. Go to **Settings** > **Automations & Scenes** > **Automations**
+2. Click **Create Automation** > **Use Blueprint**
+3. Select **Charge Cheapest**
+4. Configure the automation:
+   - Select your **Tibber Price Sensor**
+   - Select your **Battery Charging Switch**
+   - Select your **Battery SOC Sensor**
+   - Select your **Battery Capacity Sensor**
+   - Select `input_number.battery_charging_power` for **Charging Power Setting**
+   - Adjust schedule times and targets as needed
+5. Click **Save**
+
+## Configuration
+
+### Required Inputs
+
+| Input                   | Description                                 |
+| ----------------------- | ------------------------------------------- |
+| Tibber Price Sensor     | Sensor with today/tomorrow price attributes |
+| Battery Charging Switch | Switch to enable/disable charging           |
+| Battery SOC Sensor      | Current state of charge sensor              |
+| Battery Capacity Sensor | Maximum capacity sensor                     |
+| Charging Power Setting  | Input number for charger wattage            |
+
+### Schedule Inputs
+
+| Input                | Default | Description                           |
+| -------------------- | ------- | ------------------------------------- |
+| Night Schedule Start | 23:00   | When overnight charging window begins |
+| Night Schedule End   | 06:00   | When overnight window ends            |
+| Night Target SOC     | 60%     | Target charge level for night         |
+| Enable Day Schedule  | false   | Enable secondary daytime window       |
+| Day Schedule Start   | 09:00   | When day window begins                |
+| Day Schedule End     | 16:00   | When day window ends                  |
+| Day Target SOC       | 50%     | Target charge level for day           |
+| Evening Peak Start   | 17:00   | When peak period begins               |
+| Evening Peak End     | 21:00   | When peak period ends                 |
+
+### Failure Behavior
+
+When tomorrow's prices are unavailable (typically before ~13:00), the blueprint offers three behaviors:
+
+| Option               | Behavior                                       |
+| -------------------- | ---------------------------------------------- |
+| `skip_charging`      | Do not charge, send notification (default)     |
+| `use_default_window` | Use configured default start time and duration |
+| `charge_immediately` | Start charging immediately at trigger time     |
+
+### Notification Toggles
+
+All notifications default to enabled:
+
+- Charging scheduled
+- Charging started
+- Charging completed
+- Charging skipped (SOC above threshold)
+- Error conditions
+- Emergency charging before peak
+
+## Dashboard Features
+
+### Overview Tab
+
+- Real-time charging status
+- Current electricity price
+- Next charging window
+- Battery gauge (when entity configured)
+- Control buttons (enable, force charge, skip next)
+- Price chart (ApexCharts with fallback to history graph)
+
+### Statistics Tab
+
+- Estimated daily savings
+- Charging hours and session counts
+- SOC history graph
+- Price trend history
+- Cost tracking with utility meters
+
+### Configuration Tab
+
+- Entity ID configuration fields
+- Validation status indicators
+- Solar panel configuration
+- Charging power settings
+- Manual schedule times
+
+## How It Works
+
+1. **Trigger** - Automation runs at configured trigger time (default 22:30)
+2. **Price Check** - Queries Tibber sensor for available price data
+3. **Optimal Window** - Uses cheapest-energy-hours macro to find lowest-cost hours
+4. **Schedule** - Turns on charging switch during optimal window
+5. **Complete** - Turns off charging when target SOC reached or window ends
+
+### Cross-Midnight Handling
+
+For overnight windows (e.g., 23:00-06:00), the macro:
+
+- Detects start time > end time
+- Combines today's evening prices with tomorrow's morning prices
+- Selects the cheapest consecutive hours across midnight
+
+## Troubleshooting
+
+### Entity Not Found Errors
+
+**Problem:** Dashboard shows "unavailable" or "Error" status.
+
+**Solution:**
+
+1. Navigate to the Configuration tab in the dashboard
+2. Verify all entity IDs are entered correctly
+3. Check that the entities exist in **Settings** > **Devices & Services** > **Entities**
+4. Entity IDs are case-sensitive and must match exactly
+
+### Price Data Unavailable
+
+**Problem:** Prices show as unavailable or charging doesn't schedule.
+
+**Solution:**
+
+1. Verify the Tibber integration is working correctly
+2. Tomorrow's prices are typically available after 13:00 CET
+3. Check the `binary_sensor.charge_cheapest_prices_available` entity
+4. Consider using `use_default_window` failure behavior as a fallback
+
+### Dashboard Import Issues
+
+**Problem:** Dashboard fails to import or shows errors.
+
+**Solution:**
+
+1. Ensure you're using the Raw configuration editor (not the UI editor)
+2. Delete all existing content before pasting
+3. Check for YAML syntax errors (proper indentation)
+4. Verify all required custom cards are installed (ApexCharts is optional)
+
+### Helpers Not Created
+
+**Problem:** Input helpers don't appear after restart.
+
+**Solution:**
+
+1. Verify the packages folder is in the correct location (`config/packages/`)
+2. Check that `configuration.yaml` has the packages include
+3. Check Home Assistant logs for YAML parsing errors
+4. Ensure the YAML file doesn't have syntax errors
+
+### ApexCharts Not Displaying
+
+**Problem:** Price chart shows as empty or with errors.
+
+**Solution:**
+
+1. ApexCharts is optional - the dashboard includes a fallback history graph
+2. To install ApexCharts: HACS > Frontend > Search "ApexCharts" > Install
+3. Clear browser cache after installing custom cards
+
+### Charging Not Starting
+
+**Problem:** Automation triggers but charging doesn't start.
+
+**Solution:**
+
+1. Check that `input_boolean.charge_cheapest_enabled` is on
+2. Verify the battery switch entity is correct and responsive
+3. Check if current SOC is already at or above target
+4. Review automation trace in **Settings** > **Automations** > (your automation) > **Traces**
+
+## Project Structure
+
+```
+charge-cheapest/
+├── .github/
+│   └── workflows/
+│       └── hacs.yaml              # HACS validation workflow
+├── blueprints/
+│   └── automation/
+│       └── charge_cheapest.yaml            # Main blueprint
+├── dashboards/
+│   └── charge_cheapest.yaml                # Lovelace dashboard
+├── packages/
+│   └── cheapest_battery_charging/
+│       └── cheapest_battery_charging.yaml  # Package with all helpers
+├── tests/                                   # Jest test suite
+├── hacs.json                                # HACS manifest
+├── info.md                                  # HACS store description
+├── package.json
+└── README.md
+```
+
+## Development
+
+### Running Tests
+
+```bash
+# Install dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Run specific test suite
+npm run test:night
+npm run test:day
+npm run test:entity
+```
+
+### Test Coverage
+
+The test suite validates:
+
+- YAML syntax and parsing
+- Blueprint metadata structure
+- Input configurations and defaults
+- Entity selector domains
+- Number selector ranges
+- Boolean defaults
+- Select dropdown options
+
+## Package Entities Reference
+
+### Input Helpers Created
+
+| Entity                                        | Type     | Description                  |
+| --------------------------------------------- | -------- | ---------------------------- |
+| `input_text.charge_cheapest_price_sensor_id`  | text     | Price sensor entity ID       |
+| `input_text.charge_cheapest_soc_sensor_id`    | text     | Battery SOC sensor entity ID |
+| `input_text.charge_cheapest_switch_id`        | text     | Battery switch entity ID     |
+| `input_text.solar_forecast_storage`           | text     | Solar forecast data storage  |
+| `input_number.battery_charging_power`         | number   | Charging power in watts      |
+| `input_number.user_soc_target`                | number   | Target SOC percentage        |
+| `input_number.solar_panel_azimuth`            | number   | Solar panel azimuth          |
+| `input_number.solar_panel_tilt`               | number   | Solar panel tilt             |
+| `input_number.solar_peak_power_kwp`           | number   | Solar system peak power      |
+| `input_boolean.charge_cheapest_enabled`       | boolean  | Master enable toggle         |
+| `input_boolean.charge_cheapest_force_now`     | boolean  | Force charge override        |
+| `input_boolean.charge_cheapest_skip_next`     | boolean  | Skip next charge             |
+| `input_select.charge_cheapest_mode`           | select   | Charging mode selection      |
+| `input_datetime.charge_cheapest_manual_start` | datetime | Manual start time            |
+| `input_datetime.charge_cheapest_manual_end`   | datetime | Manual end time              |
+
+### Template Sensors Created
+
+| Entity                                   | Description               |
+| ---------------------------------------- | ------------------------- |
+| `sensor.charge_cheapest_status`          | Current charging state    |
+| `sensor.charge_cheapest_next_window`     | Next scheduled window     |
+| `sensor.charge_cheapest_current_price`   | Current electricity price |
+| `sensor.charge_cheapest_price_range`     | Today's price range       |
+| `sensor.charge_cheapest_recommended_soc` | Recommended SOC target    |
+| `sensor.charge_cheapest_savings_today`   | Estimated daily savings   |
+| `sensor.charge_cheapest_hours_today`     | Hours charged today       |
+| `sensor.charge_cheapest_count_today`     | Charge sessions today     |
+
+### Binary Sensors Created
+
+| Entity                                           | Description             |
+| ------------------------------------------------ | ----------------------- |
+| `binary_sensor.charge_cheapest_is_charging`      | Currently charging      |
+| `binary_sensor.charge_cheapest_is_cheap_hour`    | Current hour is cheap   |
+| `binary_sensor.charge_cheapest_prices_available` | Tomorrow data available |
+| `binary_sensor.charge_cheapest_ready`            | All entities configured |
+
+### Utility Meters Created
+
+| Entity                                       | Description           |
+| -------------------------------------------- | --------------------- |
+| `utility_meter.charge_cheapest_cost_daily`   | Daily cost tracking   |
+| `utility_meter.charge_cheapest_cost_monthly` | Monthly cost tracking |
+
+## License
+
+ISC
+
+## Credits
+
+- [cheapest-energy-hours macro](https://github.com/TheFes/cheapest-energy-hours) by TheFes
+- [Tibber integration](https://www.home-assistant.io/integrations/tibber/) for Home Assistant

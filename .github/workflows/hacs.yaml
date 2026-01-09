@@ -1,0 +1,75 @@
+name: HACS Validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    name: Validate HACS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: HACS Action
+        uses: hacs/action@main
+        with:
+          category: homeassistant
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run tests
+        run: uv run pytest
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run RUFF linter
+        run: uv run ruff check .
+
+      - name: Run RUFF formatter check
+        run: uv run ruff format --check .
+
+      - name: Lint package YAML
+        run: |
+          uv run yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" packages/
+
+      - name: Lint dashboard YAML
+        run: |
+          uv run yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" dashboards/

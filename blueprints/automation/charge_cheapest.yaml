@@ -1,0 +1,1572 @@
+# Charge Cheapest Blueprint
+#
+# This blueprint enables automatic battery charging during the cheapest electricity
+# hours based on Tibber price data. It supports configurable night and day charging
+# schedules with independent SOC targets.
+#
+# Prerequisites:
+#   - cheapest-energy-hours Jinja macro (TheFes/cheapest-energy-hours)
+#     Install via HACS or manual copy to custom_templates/
+#     GitHub: https://github.com/TheFes/cheapest-energy-hours
+#   - Tibber integration with price sensor providing today/tomorrow attributes
+#
+# Macro configuration:
+#   The blueprint uses the cheapest-energy-hours macro with these parameters:
+#   - sensor: User-configured price_sensor
+#   - attr_today: 'today' (Tibber sensor attribute for today's prices)
+#   - attr_tomorrow: 'tomorrow' (Tibber sensor attribute for tomorrow's prices)
+#   - value_key: 'total' (price field in each hourly entry)
+#   - datetime_in_data: false (Tibber uses position-based hourly arrays)
+#   - include_tomorrow: true (for night charging cross-midnight windows)
+#   - look_ahead: true (ensures future time selection)
+#   - mode: 'start', 'end', 'list' (different outputs for scheduling)
+#
+# Cross-midnight support:
+#   Night charging windows (e.g., 23:00-06:00) are handled by setting
+#   start > end with include_tomorrow=true. The macro automatically
+#   combines today's evening prices with tomorrow's morning prices.
+#
+# Failure behavior (when tomorrow's prices unavailable before ~13:00):
+#   - skip_charging: Do not charge, send notification
+#   - use_default_window: Use default_charge_start_time and default_charge_duration
+#   - charge_immediately: Start charging at trigger time
+
+blueprint:
+  name: Charge Cheapest
+  description: >-
+    Automatically charge your battery during the cheapest electricity hours
+    based on Tibber price data. Configure night and day charging schedules
+    with independent SOC targets to optimize your energy costs.
+  domain: automation
+  source_url: https://github.com/your-username/charge-cheapest
+
+  # Input Configuration
+  # -------------------
+  # All user-configurable parameters for the charging automation
+
+  input:
+    # Night Schedule Inputs
+    # ---------------------
+
+    night_start_time:
+      name: Night Schedule Start Time
+      description: When the night charging window begins
+      default: "23:00:00"
+      selector:
+        time:
+
+    night_end_time:
+      name: Night Schedule End Time
+      description: When the night charging window ends (next calendar day)
+      default: "06:00:00"
+      selector:
+        time:
+
+    night_target_soc:
+      name: Night Target SOC
+      description: Target state of charge for night charging (will always be reached)
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+
+    # Day/Winter Schedule Inputs
+    # --------------------------
+
+    day_schedule_enabled:
+      name: Enable Day Schedule
+      description: Enable secondary charging window for winter months
+      default: false
+      selector:
+        boolean:
+
+    day_start_time:
+      name: Day Schedule Start Time
+      description: When the day charging window begins
+      default: "09:00:00"
+      selector:
+        time:
+
+    day_end_time:
+      name: Day Schedule End Time
+      description: When the day charging window ends
+      default: "16:00:00"
+      selector:
+        time:
+
+    day_target_soc:
+      name: Day Target SOC
+      description: Target state of charge for day charging (independent from night target)
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+
+    # Evening Peak Schedule Inputs
+    # ----------------------------
+
+    evening_peak_start:
+      name: Evening Peak Start Time
+      description: When expensive evening peak period begins
+      default: "17:00:00"
+      selector:
+        time:
+
+    evening_peak_end:
+      name: Evening Peak End Time
+      description: When expensive evening peak period ends
+      default: "21:00:00"
+      selector:
+        time:
+
+    evening_peak_target_soc:
+      name: Evening Peak Target SOC
+      description: Minimum battery charge level desired before evening peak hours begin
+      default: 50
+      selector:
+        number:
+          min: 20
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+
+    # Entity Selection Inputs
+    # -----------------------
+
+    price_sensor:
+      name: Price Sensor
+      description: Sensor with today/tomorrow price attributes (standard Tibber format)
+      selector:
+        entity:
+          domain: sensor
+          multiple: false
+
+    battery_charging_switch:
+      name: Battery Charging Switch
+      description: Switch entity to enable/disable battery charging
+      selector:
+        entity:
+          domain: switch
+
+    battery_soc_sensor:
+      name: Battery SOC Sensor
+      description: Sensor entity for current battery state of charge
+      selector:
+        entity:
+          domain: sensor
+
+    battery_capacity_sensor:
+      name: Battery Capacity Sensor
+      description: Sensor entity for battery maximum capacity (auto-detects Wh or kWh)
+      selector:
+        entity:
+          domain: sensor
+
+    battery_charging_power:
+      name: Charging Power Setting
+      description: Input number entity for charger wattage (used to calculate charging duration)
+      selector:
+        entity:
+          domain: input_number
+
+    # Charging Configuration Inputs
+    # -----------------------------
+
+    target_soc:
+      name: Target SOC Threshold
+      description: Target state of charge percentage for charging skip logic
+      default: 80
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+
+    charging_duration_hours:
+      name: Charging Duration (Fallback)
+      description: Fallback charging duration in hours when dynamic calculation is unavailable
+      default: 3
+      selector:
+        number:
+          min: 0.5
+          max: 8
+          step: 0.5
+          unit_of_measurement: "hours"
+          mode: slider
+
+    trigger_time:
+      name: Automation Trigger Time
+      description: Time when the automation triggers to calculate optimal charging window
+      default: "22:30:00"
+      selector:
+        time:
+
+    # Failure Behavior Configuration
+    # ------------------------------
+
+    failure_behavior:
+      name: Failure Behavior
+      description: What to do when price data is unavailable
+      default: "skip_charging"
+      selector:
+        select:
+          options:
+            - skip_charging
+            - use_default_window
+            - charge_immediately
+
+    default_charge_start_time:
+      name: Default Charge Start Time
+      description: Fallback start time when using default window behavior
+      default: "01:00:00"
+      selector:
+        time:
+
+    default_charge_duration:
+      name: Default Charge Duration
+      description: Fallback charging duration in hours when using default window behavior
+      default: 3
+      selector:
+        number:
+          min: 0.5
+          max: 8
+          step: 0.5
+          unit_of_measurement: "hours"
+          mode: slider
+
+    # Notification Settings
+    # ---------------------
+
+    notification_service:
+      name: Notification Service
+      description: Service to use for notifications (e.g., notify.mobile_app_phone)
+      default: "persistent_notification.create"
+      selector:
+        text:
+
+    notify_charging_scheduled:
+      name: Notify When Charging Scheduled
+      description: Send notification when optimal charging window is calculated
+      default: true
+      selector:
+        boolean:
+
+    notify_charging_started:
+      name: Notify When Charging Started
+      description: Send notification when battery charging begins
+      default: true
+      selector:
+        boolean:
+
+    notify_charging_completed:
+      name: Notify When Charging Completed
+      description: Send notification when battery charging finishes
+      default: true
+      selector:
+        boolean:
+
+    notify_charging_skipped:
+      name: Notify When Charging Skipped
+      description: Send notification when charging is skipped due to SOC threshold
+      default: true
+      selector:
+        boolean:
+
+    notify_charging_error:
+      name: Notify On Error
+      description: Send notification when an error occurs during charging automation
+      default: true
+      selector:
+        boolean:
+
+    notify_emergency_charging:
+      name: Notify On Emergency Charging
+      description: Send notification when emergency charging is triggered before evening peak
+      default: true
+      selector:
+        boolean:
+
+    # Solar Forecast Configuration
+    # ----------------------------
+    # Settings for integrating solar production forecasts into SOC target calculations
+
+    solar_forecast_enabled:
+      name: Enable Solar Forecast
+      description: Enable solar forecast integration for dynamic SOC targets based on expected solar production
+      default: false
+      selector:
+        boolean:
+
+    forecast_mode_automatic:
+      name: Forecast Mode Automatic
+      description: When enabled, forecast directly sets SOC targets. When disabled (default), forecast suggests values for user to confirm via input_number.
+      default: false
+      selector:
+        boolean:
+
+    morning_consumption_kwh:
+      name: Morning Consumption (kWh)
+      description: Expected energy consumption between wake time and solar production start
+      default: 3
+      selector:
+        number:
+          min: 0
+          max: 20
+          step: 0.5
+          unit_of_measurement: "kWh"
+          mode: slider
+
+    soc_offset_kwh:
+      name: SOC Offset Adjustment (kWh)
+      description: Adjustment offset for SOC calculation tuning (positive = higher SOC target)
+      default: 0
+      selector:
+        number:
+          min: -10
+          max: 10
+          step: 0.5
+          unit_of_measurement: "kWh"
+          mode: slider
+
+    minimum_soc_floor:
+      name: Minimum SOC Floor
+      description: Minimum SOC target regardless of solar forecast
+      default: 20
+      selector:
+        number:
+          min: 10
+          max: 50
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+
+    solar_forecast_detailed_logging:
+      name: Detailed Solar Forecast Logging
+      description: Enable detailed logging for solar forecast calculations
+      default: false
+      selector:
+        boolean:
+
+    solar_panel_azimuth_sensor:
+      name: Solar Panel Azimuth Sensor
+      description: Sensor or input_number entity for solar panel azimuth angle (degrees from north, 0-360)
+      selector:
+        entity:
+          domain:
+            - sensor
+            - input_number
+
+    solar_panel_tilt_sensor:
+      name: Solar Panel Tilt Sensor
+      description: Sensor or input_number entity for solar panel tilt angle (degrees from horizontal, 0-90)
+      selector:
+        entity:
+          domain:
+            - sensor
+            - input_number
+
+    solar_peak_power_kwp_sensor:
+      name: Solar Peak Power Sensor
+      description: Sensor or input_number entity for solar system peak power in kWp
+      selector:
+        entity:
+          domain:
+            - sensor
+            - input_number
+
+    # Solar Forecast Storage Helper
+    # -----------------------------
+    # Input text helper to persist forecast results between automation runs
+
+    solar_forecast_storage:
+      name: Solar Forecast Storage
+      description: Input text helper to store the latest solar forecast value (create an input_text helper)
+      default: "input_text.solar_forecast_storage"
+      selector:
+        entity:
+          domain: input_text
+
+    # User SOC Target Input for Recommendation Mode
+    # ----------------------------------------------
+    # Input number helper for user to set desired SOC target in recommendation mode
+
+    user_soc_input_number:
+      name: User SOC Target Input
+      description: Input number helper for user to set desired SOC target in recommendation mode (create manually with range 0-100%, step 5)
+      default: "input_number.user_soc_target"
+      selector:
+        entity:
+          domain: input_number
+
+# Automation Variables
+# --------------------
+# Template variables for dynamic calculations
+
+variables:
+  # Input variable references for use in templates
+  day_schedule_enabled: !input day_schedule_enabled
+  day_target_soc: !input day_target_soc
+  battery_soc_sensor: !input battery_soc_sensor
+  notify_charging_scheduled: !input notify_charging_scheduled
+  notify_charging_started: !input notify_charging_started
+  notify_charging_completed: !input notify_charging_completed
+  notify_charging_skipped: !input notify_charging_skipped
+  notify_charging_error: !input notify_charging_error
+  notify_emergency_charging: !input notify_emergency_charging
+  failure_behavior: !input failure_behavior
+  default_charge_start_time: !input default_charge_start_time
+  default_charge_duration: !input default_charge_duration
+  target_soc: !input target_soc
+  charging_duration_hours: !input charging_duration_hours
+  battery_charging_power: !input battery_charging_power
+
+  # Schedule time references for validation
+  day_end_time: !input day_end_time
+  evening_peak_start: !input evening_peak_start
+  evening_peak_target_soc: !input evening_peak_target_soc
+
+  # Solar Forecast Input Variable References
+  # ----------------------------------------
+  # References for all solar forecast configuration inputs
+  solar_forecast_enabled: !input solar_forecast_enabled
+  forecast_mode_automatic: !input forecast_mode_automatic
+  morning_consumption_kwh: !input morning_consumption_kwh
+  soc_offset_kwh: !input soc_offset_kwh
+  minimum_soc_floor: !input minimum_soc_floor
+  solar_forecast_detailed_logging: !input solar_forecast_detailed_logging
+  solar_panel_azimuth_sensor: !input solar_panel_azimuth_sensor
+  solar_panel_tilt_sensor: !input solar_panel_tilt_sensor
+  solar_peak_power_kwp_sensor: !input solar_peak_power_kwp_sensor
+  night_target_soc: !input night_target_soc
+  battery_capacity_sensor: !input battery_capacity_sensor
+  solar_forecast_storage: !input solar_forecast_storage
+  user_soc_input_number: !input user_soc_input_number
+
+  # Price Sensor and Schedule Time References
+  # ------------------------------------------
+  price_sensor: !input price_sensor
+  night_start_time: !input night_start_time
+  night_end_time: !input night_end_time
+  day_start_time: !input day_start_time
+
+  # Tomorrow Prices Availability Check
+  # ----------------------------------
+  # Checks if tomorrow's price data is available from Tibber sensor.
+  # Tomorrow's prices typically become available after 13:00.
+  tomorrow_prices_available: >-
+    {% set tomorrow_data = state_attr(price_sensor, 'tomorrow') %}
+    {{ tomorrow_data is not none and tomorrow_data | length > 0 }}
+
+  # Night Charging Cheapest Hours Calculation (Cross-Midnight)
+  # ----------------------------------------------------------
+  # Uses cheapest-energy-hours macro to find optimal charging window.
+  # Handles cross-midnight windows (e.g., 23:00-06:00) via include_tomorrow.
+  night_cheapest_start: >-
+    {% from 'cheapest_energy_hours.jinja' import cheapest_energy_hours %}
+    {% set hours_needed = calculated_charging_duration | float(3) %}
+    {% set start_time = (night_start_time | default('23:00:00') | string)[:5] %}
+    {% set end_time = (night_end_time | default('06:00:00') | string)[:5] %}
+    {% if not tomorrow_prices_available %}
+      {{ none }}
+    {% else %}
+      {{ cheapest_energy_hours(
+          sensor=price_sensor,
+          attr_today='today',
+          attr_tomorrow='tomorrow',
+          value_key='total',
+          datetime_in_data=false,
+          hours=hours_needed,
+          start=start_time,
+          end=end_time,
+          include_tomorrow=true,
+          look_ahead=true,
+          mode='start'
+      ) }}
+    {% endif %}
+
+  night_cheapest_end: >-
+    {% from 'cheapest_energy_hours.jinja' import cheapest_energy_hours %}
+    {% set hours_needed = calculated_charging_duration | float(3) %}
+    {% set start_time = (night_start_time | default('23:00:00') | string)[:5] %}
+    {% set end_time = (night_end_time | default('06:00:00') | string)[:5] %}
+    {% if not tomorrow_prices_available %}
+      {{ none }}
+    {% else %}
+      {{ cheapest_energy_hours(
+          sensor=price_sensor,
+          attr_today='today',
+          attr_tomorrow='tomorrow',
+          value_key='total',
+          datetime_in_data=false,
+          hours=hours_needed,
+          start=start_time,
+          end=end_time,
+          include_tomorrow=true,
+          look_ahead=true,
+          mode='end'
+      ) }}
+    {% endif %}
+
+  night_cheapest_cost: >-
+    {% from 'cheapest_energy_hours.jinja' import cheapest_energy_hours %}
+    {% set hours_needed = calculated_charging_duration | float(3) %}
+    {% set start_time = (night_start_time | default('23:00:00') | string)[:5] %}
+    {% set end_time = (night_end_time | default('06:00:00') | string)[:5] %}
+    {% if not tomorrow_prices_available %}
+      {{ 0 }}
+    {% else %}
+      {% set prices = cheapest_energy_hours(
+          sensor=price_sensor,
+          attr_today='today',
+          attr_tomorrow='tomorrow',
+          value_key='total',
+          datetime_in_data=false,
+          hours=hours_needed,
+          start=start_time,
+          end=end_time,
+          include_tomorrow=true,
+          look_ahead=true,
+          mode='list'
+      ) %}
+      {{ prices | sum | round(4) if prices else 0 }}
+    {% endif %}
+
+  # Day Charging Cheapest Hours Calculation (Same-Day)
+  # --------------------------------------------------
+  # Uses cheapest-energy-hours macro for day charging window.
+  # Does not span midnight, so simpler configuration.
+  day_cheapest_start: >-
+    {% from 'cheapest_energy_hours.jinja' import cheapest_energy_hours %}
+    {% set hours_needed = day_calculated_charging_duration | float(2) %}
+    {% set start_time = (day_start_time | default('09:00:00') | string)[:5] %}
+    {% set end_time = (day_end_time | default('16:00:00') | string)[:5] %}
+    {{ cheapest_energy_hours(
+        sensor=price_sensor,
+        attr_today='today',
+        attr_tomorrow='tomorrow',
+        value_key='total',
+        datetime_in_data=false,
+        hours=hours_needed,
+        start=start_time,
+        end=end_time,
+        include_tomorrow=false,
+        look_ahead=true,
+        mode='start'
+    ) }}
+
+  day_cheapest_end: >-
+    {% from 'cheapest_energy_hours.jinja' import cheapest_energy_hours %}
+    {% set hours_needed = day_calculated_charging_duration | float(2) %}
+    {% set start_time = (day_start_time | default('09:00:00') | string)[:5] %}
+    {% set end_time = (day_end_time | default('16:00:00') | string)[:5] %}
+    {{ cheapest_energy_hours(
+        sensor=price_sensor,
+        attr_today='today',
+        attr_tomorrow='tomorrow',
+        value_key='total',
+        datetime_in_data=false,
+        hours=hours_needed,
+        start=start_time,
+        end=end_time,
+        include_tomorrow=false,
+        look_ahead=true,
+        mode='end'
+    ) }}
+
+  day_cheapest_cost: >-
+    {% from 'cheapest_energy_hours.jinja' import cheapest_energy_hours %}
+    {% set hours_needed = day_calculated_charging_duration | float(2) %}
+    {% set start_time = (day_start_time | default('09:00:00') | string)[:5] %}
+    {% set end_time = (day_end_time | default('16:00:00') | string)[:5] %}
+    {% set prices = cheapest_energy_hours(
+        sensor=price_sensor,
+        attr_today='today',
+        attr_tomorrow='tomorrow',
+        value_key='total',
+        datetime_in_data=false,
+        hours=hours_needed,
+        start=start_time,
+        end=end_time,
+        include_tomorrow=false,
+        look_ahead=true,
+        mode='list'
+    ) %}
+    {{ prices | sum | round(4) if prices else 0 }}
+
+  # Schedule Conflict Detection
+  # ---------------------------
+  # Validates that day charging schedule does not overlap with evening peak hours.
+  # This validation ensures users don't misconfigure schedules where day charging
+  # would run into or past the evening peak start time.
+  schedule_conflict_detected: >-
+    {% set day_end = strptime(day_end_time, '%H:%M:%S') if ':' in day_end_time | string else strptime(day_end_time ~ ':00', '%H:%M:%S') %}
+    {% set peak_start = strptime(evening_peak_start, '%H:%M:%S') if ':' in evening_peak_start | string else strptime(evening_peak_start ~ ':00', '%H:%M:%S') %}
+    {% set day_end_minutes = day_end.hour * 60 + day_end.minute %}
+    {% set peak_start_minutes = peak_start.hour * 60 + peak_start.minute %}
+    {{ day_end_minutes >= peak_start_minutes }}
+
+  # Schedule Conflict Error Message
+  # -------------------------------
+  # User-friendly message explaining the schedule conflict and suggesting resolution.
+  # Displayed when schedule_conflict_detected is true.
+  schedule_conflict_message: >-
+    {% set day_end = strptime(day_end_time, '%H:%M:%S') if ':' in day_end_time | string else strptime(day_end_time ~ ':00', '%H:%M:%S') %}
+    {% set peak_start = strptime(evening_peak_start, '%H:%M:%S') if ':' in evening_peak_start | string else strptime(evening_peak_start ~ ':00', '%H:%M:%S') %}
+    Schedule conflict detected: Day charging ends at {{ day_end.strftime('%H:%M') }} but evening peak starts at {{ peak_start.strftime('%H:%M') }}.
+    The day charging window overlaps with the evening peak period.
+    To resolve: Either set day_end_time earlier than {{ peak_start.strftime('%H:%M') }}, or adjust evening_peak_start to a later time.
+
+  # Emergency Charging Check Time
+  # -----------------------------
+  # Calculates the time to check SOC before evening peak starts.
+  # Uses a 1-hour buffer to allow time for emergency charging if needed.
+  emergency_check_buffer_minutes: 60
+
+  # Evening Peak Check Trigger Time
+  # --------------------------------
+  # Calculates the trigger time for the pre-peak SOC check.
+  # Fires emergency_check_buffer_minutes before evening_peak_start to allow
+  # sufficient time for SOC assessment and potential emergency charging.
+  evening_peak_check_time: >-
+    {% set peak_start = strptime(evening_peak_start, '%H:%M:%S') if ':' in evening_peak_start | string else strptime(evening_peak_start ~ ':00', '%H:%M:%S') %}
+    {% set peak_start_minutes = peak_start.hour * 60 + peak_start.minute %}
+    {% set check_minutes = peak_start_minutes - emergency_check_buffer_minutes %}
+    {% if check_minutes < 0 %}
+      {% set check_minutes = check_minutes + 1440 %}
+    {% endif %}
+    {% set check_hour = (check_minutes // 60) | int %}
+    {% set check_minute = (check_minutes % 60) | int %}
+    {{ '%02d:%02d:00' | format(check_hour, check_minute) }}
+
+  # Solar Forecast kWh Variable
+  # ---------------------------
+  # Fetches expected daily solar production from configured sensor values.
+  # Uses Home Assistant sensor states for latitude, longitude, azimuth, tilt, and peak power.
+  # Returns -1 when forecast is unavailable or solar_forecast_enabled is false.
+  solar_forecast_kwh: >-
+    {% if not solar_forecast_enabled %}
+      {{ -1 }}
+    {% else %}
+      {% set azimuth = states(solar_panel_azimuth_sensor) | float(-1) %}
+      {% set tilt = states(solar_panel_tilt_sensor) | float(-1) %}
+      {% set kwp = states(solar_peak_power_kwp_sensor) | float(-1) %}
+      {% set lat = state_attr('zone.home', 'latitude') | float(-1) %}
+      {% set lon = state_attr('zone.home', 'longitude') | float(-1) %}
+      {% if azimuth < 0 or tilt < 0 or kwp <= 0 or lat == -1 or lon == -1 %}
+        {{ -1 }}
+      {% else %}
+        {% set forecast_sensor = 'sensor.solar_forecast_today' %}
+        {% set forecast_value = states(forecast_sensor) | float(-1) %}
+        {% if forecast_value >= 0 %}
+          {{ forecast_value }}
+        {% else %}
+          {{ -1 }}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+
+  # Optimal Morning SOC Calculation
+  # -------------------------------
+  # Calculates optimal morning SOC target based on expected solar production.
+  # Formula: target_soc = default_night_target - (expected_solar - morning_consumption - offset) / capacity * 100
+  # Clamps result between minimum_soc_floor and night_target_soc.
+  # Falls back to night_target_soc when solar_forecast_enabled is false or forecast unavailable.
+  optimal_morning_soc: >-
+    {% set default_target = night_target_soc | float(60) %}
+    {% set min_floor = minimum_soc_floor | float(20) %}
+    {% set forecast_kwh = solar_forecast_kwh | float(-1) %}
+    {% set consumption = morning_consumption_kwh | float(3) %}
+    {% set offset = soc_offset_kwh | float(0) %}
+    {% set capacity_raw = states(battery_capacity_sensor) | float(-1) %}
+    {% set capacity_unit = state_attr(battery_capacity_sensor, 'unit_of_measurement') | default('kWh') | lower %}
+    {% if not solar_forecast_enabled or forecast_kwh < 0 or capacity_raw <= 0 %}
+      {{ default_target }}
+    {% else %}
+      {% set capacity_kwh = capacity_raw / 1000 if 'wh' in capacity_unit and 'kwh' not in capacity_unit else capacity_raw %}
+      {% if capacity_kwh <= 0 %}
+        {{ default_target }}
+      {% else %}
+        {% set excess_solar = forecast_kwh - consumption - offset %}
+        {% set soc_reduction = (excess_solar / capacity_kwh) * 100 %}
+        {% set calculated_target = default_target - soc_reduction %}
+        {% set clamped_target = [min_floor, [calculated_target, default_target] | min] | max %}
+        {{ clamped_target | round(1) }}
+      {% endif %}
+    {% endif %}
+
+  # Solar Forecast Sensor Attributes
+  # --------------------------------
+  # Provides detailed attributes for the solar forecast calculation.
+  # Formatted as a dictionary for use in sensor state attributes.
+  # Includes: expected_solar_kwh, morning_consumption_kwh, offset_applied,
+  # calculation_timestamp, and forecast_source.
+  solar_forecast_attributes: >-
+    {% set forecast_kwh = solar_forecast_kwh | float(-1) %}
+    {% set consumption = morning_consumption_kwh | float(3) %}
+    {% set offset = soc_offset_kwh | float(0) %}
+    {% set optimal_soc = optimal_morning_soc | float(night_target_soc | float(60)) %}
+    {% set is_enabled = solar_forecast_enabled %}
+    {% set timestamp = now().isoformat() %}
+    {
+      'expected_solar_kwh': {{ forecast_kwh if forecast_kwh >= 0 else 'unavailable' }},
+      'morning_consumption_kwh': {{ consumption }},
+      'offset_applied': {{ offset }},
+      'calculation_timestamp': '{{ timestamp }}',
+      'forecast_source': '{{ "forecast.solar" if is_enabled and forecast_kwh >= 0 else "fallback" }}',
+      'optimal_soc_target': {{ optimal_soc }},
+      'solar_forecast_enabled': {{ is_enabled | lower }}
+    }
+
+  # Recommended SOC Sensor Value
+  # ----------------------------
+  # The recommended SOC value to expose via sensor.charge_cheapest_recommended_soc.
+  # This is the optimal_morning_soc calculation result with attributes.
+  recommended_soc_value: >-
+    {{ optimal_morning_soc | float(night_target_soc | float(60)) | round(1) }}
+
+  # Recommended SOC Sensor Attributes
+  # ---------------------------------
+  # Attributes for the recommendation sensor including calculation details.
+  recommended_soc_attributes: >-
+    {% set forecast_kwh = solar_forecast_kwh | float(-1) %}
+    {% set consumption = morning_consumption_kwh | float(3) %}
+    {% set timestamp = now().isoformat() %}
+    {
+      'expected_solar_kwh': {{ forecast_kwh if forecast_kwh >= 0 else 'null' }},
+      'morning_consumption_kwh': {{ consumption }},
+      'calculation_timestamp': '{{ timestamp }}'
+    }
+
+  # Night Charging Effective Target SOC
+  # ------------------------------------
+  # Determines the effective target SOC for night charging.
+  # Mode-aware: automatic mode uses optimal_morning_soc, recommendation mode uses user input.
+  # Falls back to night_target_soc when solar forecast is disabled.
+  night_charging_target_soc: >-
+    {% if solar_forecast_enabled %}
+      {% if forecast_mode_automatic %}
+        {{ optimal_morning_soc | float(night_target_soc | float(60)) }}
+      {% else %}
+        {{ states(user_soc_input_number) | float(optimal_morning_soc | float(night_target_soc | float(60))) }}
+      {% endif %}
+    {% else %}
+      {{ night_target_soc | float(60) }}
+    {% endif %}
+
+  # Night Charging Target Source
+  # ----------------------------
+  # Indicates which target was used for the night charging skip decision.
+  # Returns mode indicator for notifications.
+  night_charging_target_source: >-
+    {% set forecast_kwh = solar_forecast_kwh | float(-1) %}
+    {% if solar_forecast_enabled and forecast_kwh >= 0 %}
+      {% if forecast_mode_automatic %}
+        solar_optimized_automatic
+      {% else %}
+        solar_optimized_recommendation
+      {% endif %}
+    {% else %}
+      static
+    {% endif %}
+
+  # Day Charging Effective Target SOC
+  # ----------------------------------
+  # Determines the effective target SOC for day charging.
+  # Mode-aware: same logic as night charging for consistency.
+  day_charging_target_soc: >-
+    {% if solar_forecast_enabled %}
+      {% if forecast_mode_automatic %}
+        {{ optimal_morning_soc | float(day_target_soc | float(50)) }}
+      {% else %}
+        {{ states(user_soc_input_number) | float(optimal_morning_soc | float(day_target_soc | float(50))) }}
+      {% endif %}
+    {% else %}
+      {{ day_target_soc | float(50) }}
+    {% endif %}
+
+  # Dynamic charging duration calculation for NIGHT charging with 95% efficiency factor
+  # Uses optimal_morning_soc when solar forecast is enabled, otherwise target_soc
+  # Falls back to charging_duration_hours when sensor values are unavailable
+  calculated_charging_duration: >-
+    {% set current_soc = states(battery_soc_sensor) | float(-1) %}
+    {% set target = night_charging_target_soc | float(target_soc | float(80)) %}
+    {% set capacity_raw = states(battery_capacity_sensor) | float(-1) %}
+    {% set capacity_unit = state_attr(battery_capacity_sensor, 'unit_of_measurement') | default('kWh') | lower %}
+    {% set charge_power_w = states(battery_charging_power) | float(-1) %}
+    {% set fallback = charging_duration_hours | float(3) %}
+    {% set efficiency = 0.95 %}
+    {% if current_soc < 0 or capacity_raw < 0 or charge_power_w <= 0 %}
+      {{ fallback }}
+    {% else %}
+      {% set capacity_kwh = capacity_raw / 1000 if 'wh' in capacity_unit and 'kwh' not in capacity_unit else capacity_raw %}
+      {% set charge_power_kw = charge_power_w / 1000 %}
+      {% set soc_delta = target - current_soc %}
+      {% if soc_delta <= 0 or capacity_kwh <= 0 or charge_power_kw <= 0 %}
+        {{ 0 if soc_delta <= 0 else fallback }}
+      {% else %}
+        {% set energy_needed_kwh = (soc_delta / 100) * capacity_kwh %}
+        {% set hours_needed = energy_needed_kwh / (charge_power_kw * efficiency) %}
+        {% set hours_clamped = [hours_needed, 0.25] | max %}
+        {% set slots_needed = (hours_clamped * 4) | round(0, 'ceil') %}
+        {{ (slots_needed / 4) | round(2) }}
+      {% endif %}
+    {% endif %}
+
+  # Dynamic charging duration calculation for DAY charging with 95% efficiency factor
+  # Uses day_charging_target_soc for mode-aware day schedule
+  # Falls back to charging_duration_hours when sensor values are unavailable
+  day_calculated_charging_duration: >-
+    {% set current_soc = states(battery_soc_sensor) | float(-1) %}
+    {% set target = day_charging_target_soc | float(50) %}
+    {% set capacity_raw = states(battery_capacity_sensor) | float(-1) %}
+    {% set capacity_unit = state_attr(battery_capacity_sensor, 'unit_of_measurement') | default('kWh') | lower %}
+    {% set charge_power_w = states(battery_charging_power) | float(-1) %}
+    {% set fallback = charging_duration_hours | float(3) %}
+    {% set efficiency = 0.95 %}
+    {% if current_soc < 0 or capacity_raw < 0 or charge_power_w <= 0 %}
+      {{ fallback }}
+    {% else %}
+      {% set capacity_kwh = capacity_raw / 1000 if 'wh' in capacity_unit and 'kwh' not in capacity_unit else capacity_raw %}
+      {% set charge_power_kw = charge_power_w / 1000 %}
+      {% set soc_delta = target - current_soc %}
+      {% if soc_delta <= 0 or capacity_kwh <= 0 or charge_power_kw <= 0 %}
+        {{ 0 if soc_delta <= 0 else fallback }}
+      {% else %}
+        {% set energy_needed_kwh = (soc_delta / 100) * capacity_kwh %}
+        {% set hours_needed = energy_needed_kwh / (charge_power_kw * efficiency) %}
+        {% set hours_clamped = [hours_needed, 0.25] | max %}
+        {% set slots_needed = (hours_clamped * 4) | round(0, 'ceil') %}
+        {{ (slots_needed / 4) | round(2) }}
+      {% endif %}
+    {% endif %}
+
+  # Dynamic charging duration calculation for EMERGENCY charging (evening peak)
+  # Uses evening_peak_target_soc for emergency charging before peak hours
+  # Falls back to charging_duration_hours when sensor values are unavailable
+  emergency_calculated_charging_duration: >-
+    {% set current_soc = states(battery_soc_sensor) | float(-1) %}
+    {% set target = evening_peak_target_soc | float(50) %}
+    {% set capacity_raw = states(battery_capacity_sensor) | float(-1) %}
+    {% set capacity_unit = state_attr(battery_capacity_sensor, 'unit_of_measurement') | default('kWh') | lower %}
+    {% set charge_power_w = states(battery_charging_power) | float(-1) %}
+    {% set fallback = charging_duration_hours | float(3) %}
+    {% set efficiency = 0.95 %}
+    {% if current_soc < 0 or capacity_raw < 0 or charge_power_w <= 0 %}
+      {{ fallback }}
+    {% else %}
+      {% set capacity_kwh = capacity_raw / 1000 if 'wh' in capacity_unit and 'kwh' not in capacity_unit else capacity_raw %}
+      {% set charge_power_kw = charge_power_w / 1000 %}
+      {% set soc_delta = target - current_soc %}
+      {% if soc_delta <= 0 or capacity_kwh <= 0 or charge_power_kw <= 0 %}
+        {{ 0 if soc_delta <= 0 else fallback }}
+      {% else %}
+        {% set energy_needed_kwh = (soc_delta / 100) * capacity_kwh %}
+        {% set hours_needed = energy_needed_kwh / (charge_power_kw * efficiency) %}
+        {% set hours_clamped = [hours_needed, 0.25] | max %}
+        {% set slots_needed = (hours_clamped * 4) | round(0, 'ceil') %}
+        {{ (slots_needed / 4) | round(2) }}
+      {% endif %}
+    {% endif %}
+
+  # Emergency charging end time calculation
+  # Stops at whichever comes first: target SOC reached OR evening_peak_start
+  emergency_charging_end_time: >-
+    {% set peak_start = strptime(evening_peak_start, '%H:%M:%S') if ':' in evening_peak_start | string else strptime(evening_peak_start ~ ':00', '%H:%M:%S') %}
+    {% set peak_start_dt = now().replace(hour=peak_start.hour, minute=peak_start.minute, second=0, microsecond=0) %}
+    {% set duration_hours = emergency_calculated_charging_duration | float(1) %}
+    {% set target_end_dt = now() + timedelta(hours=duration_hours) %}
+    {% if target_end_dt < peak_start_dt %}
+      {{ target_end_dt.strftime('%H:%M:%S') }}
+    {% else %}
+      {{ peak_start_dt.strftime('%H:%M:%S') }}
+    {% endif %}
+
+  # Emergency charging stop reason
+  # Indicates whether charging stops at target SOC or evening peak start
+  emergency_stop_reason: >-
+    {% set peak_start = strptime(evening_peak_start, '%H:%M:%S') if ':' in evening_peak_start | string else strptime(evening_peak_start ~ ':00', '%H:%M:%S') %}
+    {% set peak_start_dt = now().replace(hour=peak_start.hour, minute=peak_start.minute, second=0, microsecond=0) %}
+    {% set duration_hours = emergency_calculated_charging_duration | float(1) %}
+    {% set target_end_dt = now() + timedelta(hours=duration_hours) %}
+    {% if target_end_dt < peak_start_dt %}
+      target_reached
+    {% else %}
+      evening_peak_start
+    {% endif %}
+
+# Trigger Configuration
+# ---------------------
+# Triggers for night, day, evening peak charging schedules, and solar forecast polling
+
+trigger:
+  # Night charging trigger - fires at configured trigger_time
+  - platform: time
+    at: !input trigger_time
+    id: night_trigger
+
+  # Day charging trigger - fires at day_start_time when day_schedule_enabled
+  - platform: time
+    at: !input day_start_time
+    id: day_trigger
+
+  # Evening peak check trigger - fires before evening_peak_start for SOC assessment
+  # Uses template to calculate time based on evening_peak_start minus buffer
+  - platform: template
+    value_template: >-
+      {% set peak_start_input = evening_peak_start %}
+      {% set peak_start = strptime(peak_start_input, '%H:%M:%S') if ':' in peak_start_input | string else strptime(peak_start_input ~ ':00', '%H:%M:%S') %}
+      {% set peak_start_minutes = peak_start.hour * 60 + peak_start.minute %}
+      {% set check_minutes = peak_start_minutes - emergency_check_buffer_minutes %}
+      {% if check_minutes < 0 %}
+        {% set check_minutes = check_minutes + 1440 %}
+      {% endif %}
+      {% set check_hour = (check_minutes // 60) | int %}
+      {% set check_minute = (check_minutes % 60) | int %}
+      {% set check_time_str = '%02d:%02d:00' | format(check_hour, check_minute) %}
+      {{ now().strftime('%H:%M:%S') == check_time_str }}
+    id: evening_peak_check
+
+  # Solar Forecast Polling Trigger
+  # ------------------------------
+  # Fires every hour on the hour to fetch updated solar forecasts
+  # Only active when solar_forecast_enabled is true
+  # Respects API rate limits (12 requests/hour for free tier)
+  - platform: time_pattern
+    hours: "/1"
+    minutes: "0"
+    seconds: "0"
+    id: solar_forecast_polling
+
+# Condition for Schedule Validation
+# ---------------------------------
+# Prevents automation from running if schedule conflict is detected
+
+condition:
+  - condition: template
+    alias: "Verify no schedule conflict between day charging and evening peak"
+    value_template: >-
+      {% if trigger.id == 'day_trigger' and day_schedule_enabled %}
+        {{ not schedule_conflict_detected }}
+      {% else %}
+        true
+      {% endif %}
+
+# Action Sequence
+# ---------------
+# Route to appropriate charging logic based on which trigger fired
+
+action:
+  # Check for schedule conflict and display error message if detected
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ schedule_conflict_detected and day_schedule_enabled }}"
+        sequence:
+          - service: persistent_notification.create
+            data:
+              title: "Schedule Configuration Error"
+              message: "{{ schedule_conflict_message }}"
+              notification_id: "charge_cheapest_schedule_conflict_error"
+          - stop: "Schedule conflict detected - automation stopped"
+
+  - choose:
+      # Night Charging Branch
+      # ---------------------
+      # Executes when night_trigger fires
+      # Uses optimal_morning_soc when solar forecast is enabled for dynamic SOC targeting
+      - conditions:
+          - condition: trigger
+            id: night_trigger
+        sequence:
+          # Step 1: Check SOC skip condition using solar-aware target
+          # Uses mode-aware night_charging_target_soc for skip decision
+          # If current SOC >= effective target, skip charging (battery has enough headroom)
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ states(battery_soc_sensor) | float(0) >= night_charging_target_soc | float(60) }}
+                sequence:
+                  # SOC already at target - send skip notification with target source and stop
+                  - condition: template
+                    value_template: "{{ notify_charging_skipped }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Night Charging Skipped"
+                      message: >-
+                        Battery SOC already at or above target. Current SOC: {{ states(battery_soc_sensor) | float(0) | round(1) }}%.
+                        Target SOC: {{ night_charging_target_soc | round(1) }}% ({{ night_charging_target_source }}).
+                        {% if solar_forecast_enabled and solar_forecast_kwh | float(-1) >= 0 %}
+                        Expected solar production: {{ solar_forecast_kwh | round(1) }} kWh.
+                        Mode: {{ 'automatic' if forecast_mode_automatic else 'recommendation' }}.
+                        {% endif %}
+                      notification_id: "charge_cheapest_night_charging_skipped"
+                  - stop: "SOC already at target - night charging not needed"
+
+          # Step 2: Calculate cheapest charging window using macro
+          # Uses cheapest-energy-hours macro for cross-midnight window calculation
+          - choose:
+              # Success path: Tomorrow's prices available - use macro calculation
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ tomorrow_prices_available and night_cheapest_start is not none and night_cheapest_start != 'None' }}
+                sequence:
+                  # Schedule charging switch actions using macro-calculated times
+                  - service: switch.turn_on
+                    target:
+                      entity_id: !input battery_charging_switch
+                    data:
+                      at: "{{ night_cheapest_start }}"
+
+                  - service: switch.turn_off
+                    target:
+                      entity_id: !input battery_charging_switch
+                    data:
+                      at: "{{ night_cheapest_end }}"
+
+                  # Send scheduled notification
+                  - condition: template
+                    value_template: "{{ notify_charging_scheduled }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Battery Charging Scheduled"
+                      message: >-
+                        Charging scheduled from {{ night_cheapest_start | as_timestamp | timestamp_custom('%H:%M') }} to {{ night_cheapest_end | as_timestamp | timestamp_custom('%H:%M') }}.
+                        Duration: {{ calculated_charging_duration }} hours.
+                        Target SOC: {{ night_charging_target_soc | round(1) }}% ({{ night_charging_target_source }}).
+                        Estimated cost: {{ night_cheapest_cost | round(4) }} EUR
+                      notification_id: "charge_cheapest_charging_scheduled"
+
+            # Failure path: Tomorrow's prices not available - apply failure_behavior
+            default:
+              - choose:
+                  # skip_charging: Send error notification and stop
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ failure_behavior == 'skip_charging' }}"
+                    sequence:
+                      - condition: template
+                        value_template: "{{ notify_charging_error }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Night Charging Error"
+                          message: >-
+                            Night charging skipped: Tomorrow's electricity prices not yet available.
+                            Prices typically update after 13:00. The automation will try again tomorrow.
+                            Failure behavior: skip_charging
+                          notification_id: "charge_cheapest_night_charging_error"
+                      - stop: "Tomorrow prices not available - skipping charging per failure_behavior"
+
+                  # use_default_window: Use fallback schedule times
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ failure_behavior == 'use_default_window' }}"
+                    sequence:
+                      # Schedule with default times
+                      - service: switch.turn_on
+                        target:
+                          entity_id: !input battery_charging_switch
+                        data:
+                          at: "{{ default_charge_start_time }}"
+
+                      - service: switch.turn_off
+                        target:
+                          entity_id: !input battery_charging_switch
+                        data:
+                          at: >-
+                            {% set start = strptime(default_charge_start_time, '%H:%M:%S') if ':' in default_charge_start_time | string else strptime(default_charge_start_time ~ ':00', '%H:%M:%S') %}
+                            {% set duration_minutes = (default_charge_duration | float(3)) * 60 %}
+                            {% set end_minutes = start.hour * 60 + start.minute + duration_minutes %}
+                            {% set end_hour = ((end_minutes // 60) % 24) | int %}
+                            {% set end_minute = (end_minutes % 60) | int %}
+                            {{ '%02d:%02d:00' | format(end_hour, end_minute) }}
+
+                      # Send fallback notification
+                      - condition: template
+                        value_template: "{{ notify_charging_scheduled }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Battery Charging Scheduled (Fallback)"
+                          message: >-
+                            Charging scheduled using fallback window (prices unavailable).
+                            Start: {{ default_charge_start_time }}, Duration: {{ default_charge_duration }} hours.
+                            Target SOC: {{ night_charging_target_soc | round(1) }}%.
+                          notification_id: "charge_cheapest_charging_scheduled"
+
+                  # charge_immediately: Start charging now
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ failure_behavior == 'charge_immediately' }}"
+                    sequence:
+                      # Turn on charging immediately
+                      - service: switch.turn_on
+                        target:
+                          entity_id: !input battery_charging_switch
+
+                      # Schedule turn off after default duration
+                      - service: switch.turn_off
+                        target:
+                          entity_id: !input battery_charging_switch
+                        data:
+                          at: >-
+                            {% set duration_minutes = (default_charge_duration | float(3)) * 60 %}
+                            {% set end_dt = now() + timedelta(minutes=duration_minutes) %}
+                            {{ end_dt.strftime('%H:%M:%S') }}
+
+                      # Send immediate charging notification
+                      - condition: template
+                        value_template: "{{ notify_charging_scheduled }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Battery Charging Started (Immediate)"
+                          message: >-
+                            Charging started immediately (prices unavailable).
+                            Duration: {{ default_charge_duration }} hours.
+                            Target SOC: {{ night_charging_target_soc | round(1) }}%.
+                          notification_id: "charge_cheapest_charging_scheduled"
+
+      # Day Charging Branch
+      # -------------------
+      # Executes when day_trigger fires and day_schedule_enabled is true
+      - conditions:
+          - condition: trigger
+            id: day_trigger
+          - condition: template
+            value_template: "{{ day_schedule_enabled }}"
+        sequence:
+          # Step 1: Check day SOC skip condition using mode-aware target
+          # Skip charging entirely if current SOC >= day_charging_target_soc
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ states(battery_soc_sensor) | float(0) >= day_charging_target_soc | float(50) }}
+                sequence:
+                  # SOC already at target - send skip notification and stop
+                  - condition: template
+                    value_template: "{{ notify_charging_skipped }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Day Charging Skipped"
+                      message: >-
+                        Battery SOC already at or above day target. Current SOC: {{ states(battery_soc_sensor) | float(0) | round(1) }}%.
+                        Day target: {{ day_charging_target_soc | round(1) }}%.
+                        {% if solar_forecast_enabled %}
+                        Mode: {{ 'automatic' if forecast_mode_automatic else 'recommendation' }}.
+                        {% endif %}
+                      notification_id: "charge_cheapest_day_charging_skipped"
+
+          # Step 2: Calculate cheapest day charging window using macro
+          # Day window does not span midnight (same-day only, uses today's prices)
+          # Uses cheapest-energy-hours macro for optimal window calculation
+          - choose:
+              # Success path: Valid macro result available
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ day_cheapest_start is not none and day_cheapest_start != 'None' and day_cheapest_start != '' }}
+                sequence:
+                  # Schedule day charging switch actions using macro-calculated times
+                  - service: switch.turn_on
+                    target:
+                      entity_id: !input battery_charging_switch
+                    data:
+                      at: "{{ day_cheapest_start }}"
+
+                  - service: switch.turn_off
+                    target:
+                      entity_id: !input battery_charging_switch
+                    data:
+                      at: "{{ day_cheapest_end }}"
+
+                  # Send day charging scheduled notification
+                  - condition: template
+                    value_template: "{{ notify_charging_scheduled }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Day Charging Scheduled"
+                      message: >-
+                        Day charging scheduled from {{ day_cheapest_start | as_timestamp | timestamp_custom('%H:%M') }} to {{ day_cheapest_end | as_timestamp | timestamp_custom('%H:%M') }}.
+                        Duration: {{ day_calculated_charging_duration }} hours.
+                        Target SOC: {{ day_charging_target_soc | round(1) }}%.
+                        Estimated cost: {{ day_cheapest_cost | round(4) }} EUR
+                      notification_id: "charge_cheapest_day_charging_scheduled"
+
+                  # Wait for charging to start and send started notification
+                  - wait_for_trigger:
+                      - platform: time
+                        at: "{{ day_cheapest_start }}"
+                    timeout: "12:00:00"
+                    continue_on_timeout: true
+
+                  - condition: template
+                    value_template: "{{ notify_charging_started and wait.trigger is not none }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Day Charging Started"
+                      message: >-
+                        Day charging started at {{ now().strftime('%H:%M') }}.
+                        Target SOC: {{ day_charging_target_soc | round(1) }}%.
+                      notification_id: "charge_cheapest_day_charging_started"
+
+                  # Wait for charging to complete and send completed notification
+                  - wait_for_trigger:
+                      - platform: time
+                        at: "{{ day_cheapest_end }}"
+                    timeout: "12:00:00"
+                    continue_on_timeout: true
+
+                  - condition: template
+                    value_template: "{{ notify_charging_completed and wait.trigger is not none }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Day Charging Completed"
+                      message: >-
+                        Day charging completed at {{ now().strftime('%H:%M') }}.
+                        Target SOC: {{ day_charging_target_soc | round(1) }}%.
+                      notification_id: "charge_cheapest_day_charging_completed"
+
+            # Failure path: Price data unavailable - apply failure_behavior
+            default:
+              - choose:
+                  # failure_behavior: skip_charging
+                  # Do not charge, optionally send error notification
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ failure_behavior == 'skip_charging' }}"
+                    sequence:
+                      - condition: template
+                        value_template: "{{ notify_charging_error }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging Error"
+                          message: >-
+                            Day charging skipped due to price data unavailable.
+                            Failure behavior: skip_charging
+                          notification_id: "charge_cheapest_day_charging_error"
+
+                  # failure_behavior: use_default_window
+                  # Use default_charge_start_time and default_charge_duration as fallback
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ failure_behavior == 'use_default_window' }}"
+                    sequence:
+                      # Calculate fallback end time from default start and duration
+                      - variables:
+                          day_fallback_start: !input default_charge_start_time
+                          day_fallback_duration: !input default_charge_duration
+
+                      # Schedule charging at default window times
+                      - service: switch.turn_on
+                        target:
+                          entity_id: !input battery_charging_switch
+                        data:
+                          at: "{{ day_fallback_start }}"
+
+                      - service: switch.turn_off
+                        target:
+                          entity_id: !input battery_charging_switch
+                        data:
+                          at: >-
+                            {{ (today_at(day_fallback_start) + timedelta(hours=day_fallback_duration | float(3))) | as_timestamp | timestamp_custom('%H:%M:%S') }}
+
+                      # Send fallback notification
+                      - condition: template
+                        value_template: "{{ notify_charging_error }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging (Fallback)"
+                          message: >-
+                            Day charging using default window due to price data unavailable.
+                            Scheduled from {{ day_fallback_start }} for {{ day_fallback_duration }} hours.
+                            Failure behavior: use_default_window
+                          notification_id: "charge_cheapest_day_charging_fallback"
+
+                      # Wait for fallback charging to start and send started notification
+                      - wait_for_trigger:
+                          - platform: time
+                            at: "{{ day_fallback_start }}"
+                        timeout: "12:00:00"
+                        continue_on_timeout: true
+
+                      - condition: template
+                        value_template: "{{ notify_charging_started and wait.trigger is not none }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging Started"
+                          message: >-
+                            Day charging started at {{ now().strftime('%H:%M') }} (fallback mode).
+                            Target SOC: {{ day_charging_target_soc | round(1) }}%.
+                          notification_id: "charge_cheapest_day_charging_started"
+
+                      # Wait for fallback charging to complete and send completed notification
+                      - wait_for_trigger:
+                          - platform: time
+                            at: >-
+                              {{ (today_at(day_fallback_start) + timedelta(hours=day_fallback_duration | float(3))) | as_timestamp | timestamp_custom('%H:%M:%S') }}
+                        timeout: "12:00:00"
+                        continue_on_timeout: true
+
+                      - condition: template
+                        value_template: "{{ notify_charging_completed and wait.trigger is not none }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging Completed"
+                          message: >-
+                            Day charging completed at {{ now().strftime('%H:%M') }} (fallback mode).
+                            Target SOC: {{ day_charging_target_soc | round(1) }}%.
+                          notification_id: "charge_cheapest_day_charging_completed"
+
+                  # failure_behavior: charge_immediately
+                  # Start charging at trigger time for default duration
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ failure_behavior == 'charge_immediately' }}"
+                    sequence:
+                      - variables:
+                          day_immediate_duration: !input default_charge_duration
+                          day_immediate_end: >-
+                            {{ (now() + timedelta(hours=default_charge_duration | float(3))) | as_timestamp | timestamp_custom('%H:%M:%S') }}
+
+                      # Turn on charging immediately
+                      - service: switch.turn_on
+                        target:
+                          entity_id: !input battery_charging_switch
+
+                      # Send day charging started notification immediately
+                      - condition: template
+                        value_template: "{{ notify_charging_started }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging Started"
+                          message: >-
+                            Day charging started immediately at {{ now().strftime('%H:%M') }} due to price data unavailable.
+                            Duration: {{ day_immediate_duration }} hours.
+                          notification_id: "charge_cheapest_day_charging_started"
+
+                      # Schedule turn off after default duration
+                      - service: switch.turn_off
+                        target:
+                          entity_id: !input battery_charging_switch
+                        data:
+                          at: "{{ day_immediate_end }}"
+
+                      # Send immediate charging notification
+                      - condition: template
+                        value_template: "{{ notify_charging_error }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging (Immediate)"
+                          message: >-
+                            Day charging started immediately due to price data unavailable.
+                            Duration: {{ day_immediate_duration }} hours.
+                            Failure behavior: charge_immediately
+                          notification_id: "charge_cheapest_day_charging_immediate"
+
+                      # Wait for immediate charging to complete and send completed notification
+                      - wait_for_trigger:
+                          - platform: time
+                            at: "{{ day_immediate_end }}"
+                        timeout: "12:00:00"
+                        continue_on_timeout: true
+
+                      - condition: template
+                        value_template: "{{ notify_charging_completed and wait.trigger is not none }}"
+                      - service: persistent_notification.create
+                        data:
+                          title: "Day Charging Completed"
+                          message: >-
+                            Day charging completed at {{ now().strftime('%H:%M') }} (immediate mode).
+                            Duration: {{ day_immediate_duration }} hours.
+                          notification_id: "charge_cheapest_day_charging_completed"
+
+      # Evening Peak Check Branch (Emergency Charging)
+      # ----------------------------------------------
+      # Executes when evening_peak_check trigger fires for SOC assessment
+      # Implements emergency charging logic to reach evening_peak_target_soc
+      # before evening_peak_start time
+      - conditions:
+          - condition: trigger
+            id: evening_peak_check
+        sequence:
+          # Step 1: Check if current SOC is already at or above evening peak target
+          # Skip emergency charging if SOC is sufficient
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {{ states(battery_soc_sensor) | float(0) >= evening_peak_target_soc | float(50) }}
+                sequence:
+                  # SOC already at target - send skip notification and stop
+                  - condition: template
+                    value_template: "{{ notify_charging_skipped }}"
+                  - service: persistent_notification.create
+                    data:
+                      title: "Emergency Charging Skipped"
+                      message: >-
+                        Battery SOC already at or above evening peak target.
+                        Current SOC: {{ states(battery_soc_sensor) | float(0) | round(1) }}%.
+                        Evening peak target: {{ evening_peak_target_soc }}%.
+                      notification_id: "charge_cheapest_emergency_charging_skipped"
+                  - stop: "SOC already at target - emergency charging not needed"
+
+          # Step 2: Calculate charging duration needed to reach target
+          # Duration is calculated using emergency_calculated_charging_duration variable
+          - variables:
+              emergency_duration: "{{ emergency_calculated_charging_duration }}"
+              emergency_end: "{{ emergency_charging_end_time }}"
+              stop_reason: "{{ emergency_stop_reason }}"
+
+          # Step 3: Turn on charging immediately (emergency mode starts now)
+          - service: switch.turn_on
+            target:
+              entity_id: !input battery_charging_switch
+
+          # Step 4: Send emergency charging notification if enabled
+          - condition: template
+            value_template: "{{ notify_emergency_charging }}"
+          - service: persistent_notification.create
+            data:
+              title: "Emergency Charging Started"
+              message: >-
+                Emergency charging activated before evening peak.
+                Current SOC: {{ states(battery_soc_sensor) | float(0) | round(1) }}%.
+                Target SOC: {{ evening_peak_target_soc }}%.
+                Time until evening peak: {{ emergency_check_buffer_minutes }} minutes.
+                Charging will stop at: {{ emergency_end }} ({{ stop_reason | replace('_', ' ') }}).
+              notification_id: "charge_cheapest_emergency_charging_started"
+
+          # Step 5: Schedule charging to stop at calculated end time
+          # Stops at target SOC reached OR evening_peak_start (whichever comes first)
+          - wait_for_trigger:
+              - platform: time
+                at: "{{ emergency_end }}"
+            timeout: "02:00:00"
+            continue_on_timeout: true
+
+          # Step 6: Turn off charging at end time
+          - service: switch.turn_off
+            target:
+              entity_id: !input battery_charging_switch
+
+          # Step 7: Send completed notification
+          - condition: template
+            value_template: "{{ notify_emergency_charging }}"
+          - service: persistent_notification.create
+            data:
+              title: "Emergency Charging Completed"
+              message: >-
+                Emergency charging completed at {{ now().strftime('%H:%M') }}.
+                Stop reason: {{ stop_reason | replace('_', ' ') }}.
+                Final SOC: {{ states(battery_soc_sensor) | float(0) | round(1) }}%.
+                Evening peak target was: {{ evening_peak_target_soc }}%.
+              notification_id: "charge_cheapest_emergency_charging_completed"
+
+      # Solar Forecast Polling Branch
+      # -----------------------------
+      # Executes when solar_forecast_polling trigger fires (every hour on the hour)
+      # Fetches solar forecast and stores result for use in SOC calculations
+      # Includes nighttime polling reduction to skip fetch when sun is below horizon
+      - conditions:
+          - condition: trigger
+            id: solar_forecast_polling
+        sequence:
+          # Step 1: Check if solar forecast is enabled
+          - condition: template
+            alias: "Check if solar forecast feature is enabled"
+            value_template: "{{ solar_forecast_enabled }}"
+
+          # Step 2: Optional nighttime polling reduction
+          # Skip fetch if sun is below horizon (reduces unnecessary API calls)
+          - condition: state
+            entity_id: sun.sun
+            state: "above_horizon"
+            alias: "Skip polling when sun is below horizon (nighttime reduction)"
+
+          # Step 3: Fetch solar forecast from sensor
+          # The solar_forecast_kwh variable template handles the actual API interaction
+          # through the sensor.solar_forecast_today sensor
+          - variables:
+              current_forecast: "{{ solar_forecast_kwh }}"
+              fetch_timestamp: "{{ now().isoformat() }}"
+              fetch_status: >-
+                {% if solar_forecast_kwh | float(-1) >= 0 %}
+                  success
+                {% else %}
+                  unavailable
+                {% endif %}
+
+          # Step 4: Store forecast result in input_text helper for persistence
+          # Format: "forecast_kwh|timestamp|status"
+          - service: input_text.set_value
+            target:
+              entity_id: "{{ solar_forecast_storage }}"
+            data:
+              value: "{{ current_forecast }}|{{ fetch_timestamp }}|{{ fetch_status }}"
+
+          # Step 5: Pre-populate user SOC input_number with recommended value
+          # Only updates in recommendation mode (when forecast_mode_automatic is false)
+          - condition: template
+            value_template: "{{ not forecast_mode_automatic }}"
+          - service: input_number.set_value
+            target:
+              entity_id: "{{ user_soc_input_number }}"
+            data:
+              value: "{{ optimal_morning_soc | float(night_target_soc | float(60)) | round(0) }}"
+
+          # Step 6: Log fetch status based on logging mode
+          - choose:
+              # Detailed logging mode - include all calculation details
+              - conditions:
+                  - condition: template
+                    value_template: "{{ solar_forecast_detailed_logging }}"
+                sequence:
+                  - service: persistent_notification.create
+                    data:
+                      title: "Solar Forecast Updated"
+                      message: >-
+                        Solar forecast polling completed at {{ now().strftime('%H:%M') }}.
+                        Fetch status: {{ fetch_status }}.
+                        Expected solar production: {{ current_forecast if current_forecast | float(-1) >= 0 else 'unavailable' }} kWh.
+                        Optimal morning SOC: {{ optimal_morning_soc }}%.
+                        Morning consumption: {{ morning_consumption_kwh }} kWh.
+                        SOC offset: {{ soc_offset_kwh }} kWh.
+                        Minimum floor: {{ minimum_soc_floor }}%.
+                        Default target: {{ night_target_soc }}%.
+                        Mode: {{ 'automatic' if forecast_mode_automatic else 'recommendation' }}.
+                        Timestamp: {{ fetch_timestamp }}.
+                      notification_id: "charge_cheapest_solar_forecast_updated"
+
+            # Default: Basic logging only on success (or always if detailed mode is off)
+            default:
+              - condition: template
+                value_template: "{{ fetch_status == 'success' }}"
+              - service: system_log.write
+                data:
+                  message: >-
+                    Solar forecast updated: {{ current_forecast }} kWh expected, optimal SOC: {{ optimal_morning_soc }}%
+                  level: info
+                  logger: "charge_cheapest.solar_forecast"
+
+          # Step 7: Handle fetch failure - log warning if forecast unavailable
+          - condition: template
+            value_template: "{{ fetch_status == 'unavailable' }}"
+          - service: system_log.write
+            data:
+              message: >-
+                Solar forecast unavailable at {{ now().strftime('%H:%M') }}.
+                Using fallback SOC target: {{ night_target_soc }}%.
+              level: warning
+              logger: "charge_cheapest.solar_forecast"

@@ -1,0 +1,400 @@
+# Charge Cheapest Dashboard
+#
+# Import this dashboard via Lovelace raw config editor:
+#   1. Go to Settings > Dashboards
+#   2. Create a new dashboard or edit existing
+#   3. Click three-dot menu > Edit dashboard > Raw configuration editor
+#   4. Paste this content
+#
+# Features:
+#   - Overview tab: Status, controls, price chart
+#   - Statistics tab: Savings, history graphs
+#   - Configuration tab: Entity setup, solar settings
+
+title: Charge Cheapest
+views:
+  # Overview Tab
+  - title: Overview
+    path: overview
+    icon: mdi:battery-charging
+    cards:
+      # Status Card
+      - type: entities
+        title: Charging Status
+        show_header_toggle: false
+        entities:
+          - entity: sensor.charge_cheapest_status
+            name: Status
+          - entity: sensor.charge_cheapest_current_price
+            name: Current Price
+          - entity: sensor.charge_cheapest_next_window
+            name: Next Window
+          - entity: input_select.charge_cheapest_mode
+            name: Mode
+          - entity: binary_sensor.charge_cheapest_is_cheap_hour
+            name: Cheap Hour
+
+      # Battery Gauge Card
+      - type: gauge
+        entity: sensor.charge_cheapest_status
+        name: Battery Status
+        needle: false
+        severity:
+          green: 60
+          yellow: 30
+          red: 0
+        card_mod:
+          style: |
+            ha-card {
+              --ha-card-background: var(--card-background-color);
+            }
+
+      # Battery SOC Gauge (conditional - shows only when entity configured)
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.charge_cheapest_ready
+            state: "on"
+        card:
+          type: gauge
+          name: Battery Level
+          needle: true
+          min: 0
+          max: 100
+          severity:
+            green: 60
+            yellow: 30
+            red: 0
+          entity: input_number.user_soc_target
+
+      # Control Buttons
+      - type: horizontal-stack
+        cards:
+          - type: button
+            entity: input_boolean.charge_cheapest_enabled
+            name: Enable
+            icon: mdi:power
+            tap_action:
+              action: toggle
+            show_state: true
+
+          - type: button
+            entity: input_boolean.charge_cheapest_force_now
+            name: Force Charge
+            icon: mdi:battery-charging-100
+            tap_action:
+              action: toggle
+            show_state: true
+
+          - type: button
+            entity: input_boolean.charge_cheapest_skip_next
+            name: Skip Next
+            icon: mdi:battery-off
+            tap_action:
+              action: toggle
+            show_state: true
+
+      # Mode Selection
+      - type: entities
+        title: Charging Mode
+        show_header_toggle: false
+        entities:
+          - entity: input_select.charge_cheapest_mode
+            name: Mode
+          - entity: input_number.user_soc_target
+            name: Target SOC
+
+      # Price Chart - ApexCharts (conditional)
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.charge_cheapest_ready
+            state: "on"
+        card:
+          type: custom:apexcharts-card
+          header:
+            show: true
+            title: Electricity Prices
+            show_states: true
+            colorize_states: true
+          graph_span: 48h
+          span:
+            start: day
+          apex_config:
+            chart:
+              height: 300px
+            xaxis:
+              labels:
+                datetimeFormatter:
+                  hour: HH:mm
+            yaxis:
+              decimalsInFloat: 3
+            tooltip:
+              x:
+                format: "dd MMM HH:mm"
+          series:
+            - entity: sensor.charge_cheapest_current_price
+              name: Price
+              type: area
+              color: "#4CAF50"
+              stroke_width: 2
+              opacity: 0.3
+              data_generator: |
+                const priceEntity = hass.states['input_text.charge_cheapest_price_sensor_id'];
+                if (!priceEntity || !priceEntity.state) return [];
+                const priceSensor = hass.states[priceEntity.state];
+                if (!priceSensor) return [];
+                const today = priceSensor.attributes.today || [];
+                const tomorrow = priceSensor.attributes.tomorrow || [];
+                const now = new Date();
+                const data = [];
+                today.forEach((item, index) => {
+                  const date = new Date(now);
+                  date.setHours(index, 0, 0, 0);
+                  data.push([date.getTime(), item.total]);
+                });
+                tomorrow.forEach((item, index) => {
+                  const date = new Date(now);
+                  date.setDate(date.getDate() + 1);
+                  date.setHours(index, 0, 0, 0);
+                  data.push([date.getTime(), item.total]);
+                });
+                return data;
+
+      # Price Chart Fallback - History Graph (shown when ApexCharts unavailable)
+      - type: history-graph
+        title: Price History (Fallback)
+        hours_to_show: 24
+        entities:
+          - entity: sensor.charge_cheapest_current_price
+            name: Price
+
+      # Cheapest Hours Info
+      - type: markdown
+        title: Price Information
+        content: |
+          **Today's Range:** {{ states('sensor.charge_cheapest_price_range') }} EUR/kWh
+
+          **Current Price:** {{ states('sensor.charge_cheapest_current_price') }} EUR/kWh
+
+          **Tomorrow Available:** {{ 'Yes' if is_state('binary_sensor.charge_cheapest_prices_available', 'on') else 'No' }}
+
+          **Recommended SOC:** {{ states('sensor.charge_cheapest_recommended_soc') }}%
+
+  # Statistics Tab
+  - title: Statistics
+    path: statistics
+    icon: mdi:chart-line
+    cards:
+      # Savings Summary
+      - type: entities
+        title: Savings Summary
+        show_header_toggle: false
+        entities:
+          - entity: sensor.charge_cheapest_savings_today
+            name: Estimated Savings Today
+          - entity: utility_meter.charge_cheapest_cost_daily
+            name: Daily Cost Tracking
+          - entity: utility_meter.charge_cheapest_cost_monthly
+            name: Monthly Cost Tracking
+
+      # Charging Statistics
+      - type: entities
+        title: Charging Statistics
+        show_header_toggle: false
+        entities:
+          - entity: sensor.charge_cheapest_hours_today
+            name: Hours Charged Today
+          - entity: sensor.charge_cheapest_count_today
+            name: Charge Sessions Today
+
+      # SOC History Graph
+      - type: history-graph
+        title: Battery SOC History
+        hours_to_show: 48
+        entities:
+          - entity: input_number.user_soc_target
+            name: Target SOC
+
+      # Charging Status History
+      - type: history-graph
+        title: Charging Activity
+        hours_to_show: 48
+        entities:
+          - entity: binary_sensor.charge_cheapest_is_charging
+            name: Charging
+
+      # Price History
+      - type: history-graph
+        title: Price Trends
+        hours_to_show: 48
+        entities:
+          - entity: sensor.charge_cheapest_current_price
+            name: Price
+
+      # Cost Comparison Card
+      - type: markdown
+        title: Cost Analysis
+        content: |
+          **Charging Strategy Performance**
+
+          *Daily Savings:* {{ states('sensor.charge_cheapest_savings_today') }} EUR
+
+          *Hours Charged:* {{ states('sensor.charge_cheapest_hours_today') }} h
+
+          *Charge Sessions:* {{ states('sensor.charge_cheapest_count_today') }}
+
+          ---
+
+          *Tip: Charging during cheap hours can save 20-50% compared to average grid prices.*
+
+  # Configuration Tab
+  - title: Configuration
+    path: configuration
+    icon: mdi:cog
+    cards:
+      # Entity Configuration Section
+      - type: entities
+        title: Entity Configuration
+        show_header_toggle: false
+        entities:
+          - entity: input_text.charge_cheapest_price_sensor_id
+            name: Price Sensor
+            icon: mdi:currency-eur
+          - entity: input_text.charge_cheapest_soc_sensor_id
+            name: Battery SOC Sensor
+            icon: mdi:battery-50
+          - entity: input_text.charge_cheapest_switch_id
+            name: Battery Charging Switch
+            icon: mdi:flash
+        footer:
+          type: markdown
+          content: |
+            Enter the entity IDs for your sensors and switches.
+            Example: `sensor.electricity_price`, `sensor.battery_soc`, `switch.battery_charging`
+
+      # Validation Status
+      - type: entities
+        title: Validation Status
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.charge_cheapest_ready
+            name: All Dependencies OK
+            icon: mdi:check-circle
+          - entity: binary_sensor.charge_cheapest_prices_available
+            name: Tomorrow Prices Available
+            icon: mdi:calendar-check
+
+      # Validation Indicators
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.charge_cheapest_ready
+            state: "on"
+        card:
+          type: markdown
+          content: |
+            **Configuration Status: OK**
+
+            All required entities are configured and responding correctly.
+
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.charge_cheapest_ready
+            state: "off"
+        card:
+          type: markdown
+          content: |
+            **Configuration Status: Incomplete**
+
+            Please configure all required entity IDs above:
+            1. Enter your price sensor entity ID
+            2. Enter your battery SOC sensor entity ID
+            3. Enter your battery charging switch entity ID
+
+            Find entity IDs in Settings > Devices & Services > Entities
+
+      # Solar Configuration
+      - type: entities
+        title: Solar Panel Configuration
+        show_header_toggle: false
+        entities:
+          - entity: input_number.solar_panel_azimuth
+            name: Panel Azimuth
+            icon: mdi:compass
+          - entity: input_number.solar_panel_tilt
+            name: Panel Tilt
+            icon: mdi:angle-acute
+          - entity: input_number.solar_peak_power_kwp
+            name: Peak Power (kWp)
+            icon: mdi:solar-power
+        footer:
+          type: markdown
+          content: |
+            Configure your solar panel parameters for solar-optimized charging.
+            - **Azimuth**: 0=North, 90=East, 180=South, 270=West
+            - **Tilt**: Angle from horizontal (0-90 degrees)
+            - **Peak Power**: Your system's rated peak power in kWp
+
+      # Charging Power Configuration
+      - type: entities
+        title: Charging Configuration
+        show_header_toggle: false
+        entities:
+          - entity: input_number.battery_charging_power
+            name: Charging Power (W)
+            icon: mdi:lightning-bolt
+          - entity: input_number.user_soc_target
+            name: Default SOC Target
+            icon: mdi:battery-charging-high
+
+      # Manual Schedule Configuration
+      - type: entities
+        title: Manual Schedule
+        show_header_toggle: false
+        entities:
+          - entity: input_datetime.charge_cheapest_manual_start
+            name: Start Time
+            icon: mdi:clock-start
+          - entity: input_datetime.charge_cheapest_manual_end
+            name: End Time
+            icon: mdi:clock-end
+        footer:
+          type: markdown
+          content: |
+            Set manual charging times when using Manual mode.
+
+      # System Information
+      - type: markdown
+        title: System Information
+        content: |
+          **Charge Cheapest**
+
+          *Version:* 1.0.0
+
+          *Status:* {{ 'Connected' if is_state('binary_sensor.charge_cheapest_ready', 'on') else 'Configuration Required' }}
+
+          *Charging Status:* {{ states('sensor.charge_cheapest_status') }}
+
+          *Current Mode:* {{ states('input_select.charge_cheapest_mode') }}
+
+          ---
+
+          **Documentation**
+
+          For setup instructions and troubleshooting, visit the GitHub repository.
+
+      # Advanced Settings
+      - type: entities
+        title: Advanced Settings
+        show_header_toggle: false
+        entities:
+          - entity: input_text.solar_forecast_storage
+            name: Solar Forecast Storage
+            icon: mdi:database
+        footer:
+          type: markdown
+          content: |
+            Advanced settings for solar forecast integration.
+            Leave empty if not using solar-optimized mode.
