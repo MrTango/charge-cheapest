@@ -9,11 +9,8 @@ A Home Assistant integration/tool for finding the cheapest electricity hours usi
 ## Commands
 
 ```bash
-# Package manager
-pnpm install          # Install dependencies
-pnpm run build        # Build the project
-pnpm run test         # Run tests
-pnpm run lint         # Run linter
+./venv/bin/pytest    # run tests
+./venv/bin/ruff      # run formating / linting
 ```
 
 ## Architecture

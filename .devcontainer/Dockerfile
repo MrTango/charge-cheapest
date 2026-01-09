@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   nano \
   vim \
   python3 \
+  python3-full \
   python3-pip \
   python3-venv \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -57,13 +58,13 @@ RUN ARCH=$(dpkg --print-architecture) && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
+
 # Set up non-root user
 USER node
 
 # Install UV (Python package manager) and Ruff (Python linter/formatter) for node user
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-  curl -LsSf https://astral.sh/ruff/install.sh | sh && \
-  /home/node/.local/bin/uv tool install pytest
+  curl -LsSf https://astral.sh/ruff/install.sh | sh
 
 # Install global packages
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
@@ -89,9 +90,18 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
+# Create Python virtual environment and install dev dependencies
+RUN python3 -m venv /home/node/.venv && \
+    /home/node/.venv/bin/pip install --upgrade pip && \
+    /home/node/.local/bin/uv pip install --python /home/node/.venv/bin/python pytest pyyaml yamllint ruff
+
+# Add venv to PATH so pytest and other tools are available in all shell sessions
+ENV PATH="/home/node/.venv/bin:$PATH"
+RUN echo 'export PATH="/home/node/.venv/bin:$PATH"' >> /home/node/.bashrc && \
+    echo 'export PATH="/home/node/.venv/bin:$PATH"' >> /home/node/.zshrc
 
 # Copy and set up firewall script
-COPY init-firewall.sh /usr/local/bin/
+COPY .devcontainer/init-firewall.sh /usr/local/bin/
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
