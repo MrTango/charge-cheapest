@@ -139,7 +139,7 @@ class TibberCheapestChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN)
                         selector.EntitySelectorConfig(domain="sensor")
                     ),
                     vol.Required(CONF_BATTERY_CHARGING_SWITCH): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="switch")
+                        selector.EntitySelectorConfig(domain="input_boolean")
                     ),
                     vol.Required(CONF_PRICE_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain="sensor")
