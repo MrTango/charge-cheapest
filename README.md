@@ -1,9 +1,10 @@
-# Charge Cheapest (WIP!!!)
+# Charge Cheapest
 
-A Home Assistant blueprint and package that automatically charges your battery during the cheapest electricity hours based on Tibber price data.
+A Home Assistant custom integration that automatically charges your battery during the cheapest electricity hours based on Tibber price data.
 
 ## Features
 
+- **One-Click Installation** - Install via HACS with automatic setup wizard
 - **Night Charging Schedule** - Charge battery during overnight hours (default 23:00-06:00) at the cheapest prices
 - **Optional Day Schedule** - Secondary charging window for winter months (default 09:00-16:00)
 - **Cross-Midnight Support** - Properly handles overnight windows spanning two calendar days
@@ -12,8 +13,9 @@ A Home Assistant blueprint and package that automatically charges your battery d
 - **Dynamic Duration Calculation** - Automatically calculates charging time based on battery capacity and charging power
 - **Failure Handling** - Configurable behavior when price data is unavailable
 - **Flexible Notifications** - Toggle notifications for scheduled, started, completed, skipped, and error events
-- **Comprehensive Dashboard** - Monitor charging status, prices, and statistics
-- **Easy Setup Package** - Pre-configured helpers with UI-based entity configuration
+- **Auto-Generated Dashboard** - Dashboard created automatically, fully customizable after setup
+- **Config Flow UI** - Easy setup wizard with entity selection and schedule configuration
+- **YAML Support** - Optional YAML configuration for advanced users
 
 ## Prerequisites
 
@@ -60,11 +62,13 @@ You need the following entities configured:
 - **Capacity sensor** - Battery maximum capacity (Wh or kWh)
 - **Input number** - Charging power setting (W)
 
-## Installation (8-Step Process)
+## Installation
 
-Follow these steps to install the complete Charge Cheapest system:
+### Option 1: HACS Installation (Recommended)
 
-### Step 1: Install cheapest-energy-hours Macro
+The easiest way to install Charge Cheapest is via HACS with the custom integration:
+
+#### Step 1: Install Prerequisites via HACS
 
 1. Open HACS in Home Assistant
 2. Go to **Automation** section
@@ -73,7 +77,53 @@ Follow these steps to install the complete Charge Cheapest system:
 5. Search for "cheapest-energy-hours" and install it
 6. Restart Home Assistant
 
-### Step 2: Copy Packages Folder
+#### Step 2: Install Charge Cheapest Integration
+
+1. In HACS, go to **Integrations**
+2. Click the three-dot menu and select **Custom repositories**
+3. Add this repository URL as an **Integration** category
+4. Search for "Tibber Cheapest Charging" and install it
+5. Restart Home Assistant
+
+#### Step 3: Configure the Integration
+
+1. Go to **Settings** > **Devices & Services**
+2. Click **Add Integration**
+3. Search for "Tibber Cheapest Charging"
+4. Follow the setup wizard:
+   - **Step 1**: Select your battery SOC sensor, charging switch, and Tibber price sensor
+   - **Step 2**: Optionally select solar forecast sensor and battery capacity sensor
+   - **Step 3**: Configure schedule times and SOC targets
+5. Click **Submit** to complete setup
+
+The integration will automatically:
+- Create all required helper entities
+- Register internal automations
+- Create a dashboard in your sidebar
+
+#### Step 4: Customize (Optional)
+
+- **Dashboard**: The auto-generated dashboard is fully yours to customize or delete
+- **Options**: Go to the integration settings to modify schedules, targets, or recreate the dashboard
+- **YAML**: Advanced users can also configure via `configuration.yaml` (see YAML Configuration below)
+
+### Option 2: Manual Installation (Legacy)
+
+For users who prefer the traditional blueprint approach:
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+#### Step 1: Install cheapest-energy-hours Macro
+
+1. Open HACS in Home Assistant
+2. Go to **Automation** section
+3. Click the three-dot menu and select **Custom repositories**
+4. Add `https://github.com/TheFes/cheapest-energy-hours` as a **Template** category
+5. Search for "cheapest-energy-hours" and install it
+6. Restart Home Assistant
+
+#### Step 2: Copy Packages Folder
 
 1. Download this repository or clone it
 2. Copy the entire `packages/` folder to your Home Assistant `config/` directory
@@ -87,7 +137,7 @@ Follow these steps to install the complete Charge Cheapest system:
    └── ...
    ```
 
-### Step 3: Add Packages Include
+#### Step 3: Add Packages Include
 
 Add the following to your `configuration.yaml`:
 
@@ -98,13 +148,13 @@ homeassistant:
 
 If you already have a `homeassistant:` section, just add the `packages:` line under it.
 
-### Step 4: Restart Home Assistant
+#### Step 4: Restart Home Assistant
 
 1. Go to **Settings** > **System** > **Restart**
 2. Click **Restart** and wait for Home Assistant to reload
 3. All helper entities will be created automatically
 
-### Step 5: Import Dashboard
+#### Step 5: Import Dashboard
 
 1. Go to **Settings** > **Dashboards**
 2. Click **Add Dashboard** and create a new dashboard (e.g., "Battery Charging")
@@ -116,7 +166,7 @@ If you already have a `homeassistant:` section, just add the `packages:` line un
 8. Copy and paste the contents of `dashboards/charge_cheapest.yaml`
 9. Click **Save** and then **Done**
 
-### Step 6: Configure Entity IDs
+#### Step 6: Configure Entity IDs
 
 1. Open your new Battery Charging dashboard
 2. Navigate to the **Configuration** tab
@@ -126,7 +176,7 @@ If you already have a `homeassistant:` section, just add the `packages:` line un
    - **Battery Charging Switch**: e.g., `switch.battery_charging`
 4. The validation indicators will turn green when entities are correctly configured
 
-### Step 7: Import Blueprint
+#### Step 7: Import Blueprint
 
 1. Go to **Settings** > **Automations & Scenes** > **Blueprints**
 2. Click **Import Blueprint**
@@ -136,11 +186,7 @@ If you already have a `homeassistant:` section, just add the `packages:` line un
    ```
 4. Click **Preview** and then **Import Blueprint**
 
-Or click the button below:
-
-[![Open your Home Assistant instance and show the blueprint import dialog](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fyour-username%2Fcharge-cheapest%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcharge_cheapest.yaml)
-
-### Step 8: Create Automation from Blueprint
+#### Step 8: Create Automation from Blueprint
 
 1. Go to **Settings** > **Automations & Scenes** > **Automations**
 2. Click **Create Automation** > **Use Blueprint**
@@ -153,6 +199,8 @@ Or click the button below:
    - Select `input_number.battery_charging_power` for **Charging Power Setting**
    - Adjust schedule times and targets as needed
 5. Click **Save**
+
+</details>
 
 ## Configuration
 
@@ -200,6 +248,39 @@ All notifications default to enabled:
 - Charging skipped (SOC above threshold)
 - Error conditions
 - Emergency charging before peak
+
+### YAML Configuration
+
+Advanced users can configure the integration via `configuration.yaml` instead of the UI:
+
+```yaml
+tibber_cheapest_charging:
+  # Required entities
+  battery_soc_sensor: sensor.battery_soc
+  battery_charging_switch: switch.battery_charging
+  price_sensor: sensor.electricity_price
+
+  # Optional entities
+  solar_forecast_sensor: sensor.solar_forecast  # Optional
+  battery_capacity_sensor: sensor.battery_capacity  # Optional
+  battery_charging_power: input_number.charging_power  # Optional
+
+  # Night schedule
+  night_start_time: "23:00"
+  night_end_time: "06:00"
+  night_target_soc: 60
+
+  # Day schedule (optional)
+  day_schedule_enabled: false
+  day_start_time: "09:00"
+  day_end_time: "16:00"
+  day_target_soc: 50
+
+  # Evening peak
+  evening_peak_start: "17:00"
+  evening_peak_end: "21:00"
+  evening_peak_target_soc: 50
+```
 
 ## Dashboard Features
 
@@ -317,18 +398,31 @@ For overnight windows (e.g., 23:00-06:00), the macro:
 charge-cheapest/
 ├── .github/
 │   └── workflows/
-│       └── hacs.yaml              # HACS validation workflow
+│       └── hacs.yaml                       # HACS validation workflow
+├── custom_components/
+│   └── tibber_cheapest_charging/           # Custom integration
+│       ├── __init__.py                     # Integration setup
+│       ├── manifest.json                   # HACS metadata
+│       ├── config_flow.py                  # Config and options flows
+│       ├── coordinator.py                  # DataUpdateCoordinator
+│       ├── const.py                        # Constants and defaults
+│       ├── sensor.py                       # Sensor platform
+│       ├── binary_sensor.py                # Binary sensor platform
+│       ├── dashboard.py                    # Dashboard configuration
+│       ├── services.yaml                   # Service definitions
+│       └── translations/
+│           └── en.json                     # English translations
 ├── blueprints/
 │   └── automation/
-│       └── charge_cheapest.yaml            # Main blueprint
+│       └── charge_cheapest.yaml            # Legacy blueprint
 ├── dashboards/
-│   └── charge_cheapest.yaml                # Lovelace dashboard
+│   └── charge_cheapest.yaml                # Lovelace dashboard template
 ├── packages/
 │   └── cheapest_battery_charging/
-│       └── cheapest_battery_charging.yaml  # Package with all helpers
-├── tests/                                   # Jest test suite
-├── hacs.json                                # HACS manifest
-├── info.md                                  # HACS store description
+│       └── cheapest_battery_charging.yaml  # Legacy package with helpers
+├── tests/                                  # Test suite
+├── hacs.json                               # HACS repository config
+├── info.md                                 # HACS store description
 ├── package.json
 └── README.md
 ```
@@ -362,9 +456,11 @@ The test suite validates:
 - Boolean defaults
 - Select dropdown options
 
-## Package Entities Reference
+## Entities Reference
 
-### Input Helpers Created
+The following entities are created automatically when using the custom integration (HACS install) or the legacy package installation.
+
+### Input Helpers Created (Legacy Package Only)
 
 | Entity                                        | Type     | Description                  |
 | --------------------------------------------- | -------- | ---------------------------- |
@@ -384,7 +480,7 @@ The test suite validates:
 | `input_datetime.charge_cheapest_manual_start` | datetime | Manual start time            |
 | `input_datetime.charge_cheapest_manual_end`   | datetime | Manual end time              |
 
-### Template Sensors Created
+### Sensors (Integration and Legacy Package)
 
 | Entity                                   | Description               |
 | ---------------------------------------- | ------------------------- |
@@ -397,7 +493,7 @@ The test suite validates:
 | `sensor.charge_cheapest_hours_today`     | Hours charged today       |
 | `sensor.charge_cheapest_count_today`     | Charge sessions today     |
 
-### Binary Sensors Created
+### Binary Sensors (Integration and Legacy Package)
 
 | Entity                                           | Description             |
 | ------------------------------------------------ | ----------------------- |
@@ -406,7 +502,7 @@ The test suite validates:
 | `binary_sensor.charge_cheapest_prices_available` | Tomorrow data available |
 | `binary_sensor.charge_cheapest_ready`            | All entities configured |
 
-### Utility Meters Created
+### Utility Meters (Legacy Package Only)
 
 | Entity                                       | Description           |
 | -------------------------------------------- | --------------------- |
