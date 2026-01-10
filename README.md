@@ -19,73 +19,26 @@ A Home Assistant custom integration that automatically charges your battery duri
 
 ## Prerequisites
 
-### 1. Tibber Integration
-
-You need the [Tibber integration](https://www.home-assistant.io/integrations/tibber/) configured with a price sensor that provides `today` and `tomorrow` price attributes.
-
-Example sensor format:
-
-```yaml
-sensor.electricity_price:
-  state: 0.2866
-  today:
-    - total: 0.2696
-    - total: 0.2632
-    # ... 24 hours of prices
-  tomorrow:
-    - total: 0.2580
-    # ... available after ~13:00
-```
-
-### 2. cheapest-energy-hours Macro
-
-Install the [cheapest-energy-hours](https://github.com/TheFes/cheapest-energy-hours) Jinja macro by TheFes:
-
-**Via HACS (recommended):**
-
-1. Add https://github.com/TheFes/cheapest-energy-hours as a custom repository in HACS
-2. Install the "cheapest-energy-hours" template
-3. Restart Home Assistant
-
-**Manual installation:**
-
-1. Download `cheapest_energy_hours.jinja` from the repository
-2. Copy to `config/custom_templates/`
-3. Restart Home Assistant
-
-### 3. Battery Control Entities
-
-You need the following entities configured:
-
-- **Switch entity** - To enable/disable battery charging
-- **SOC sensor** - Current battery state of charge (%)
-- **Capacity sensor** - Battery maximum capacity (Wh or kWh)
-- **Input number** - Charging power setting (W)
+1. **[Tibber Integration](https://www.home-assistant.io/integrations/tibber/)** - Must be configured with a price sensor that provides `today` and `tomorrow` price attributes
+2. **[cheapest-energy-hours Macro](https://github.com/TheFes/cheapest-energy-hours)** - Jinja macro by TheFes (install via HACS)
+3. **Battery Entities** - Your inverter/battery integration must expose a charging switch and SOC sensor in Home Assistant
 
 ## Installation
 
 ### Option 1: HACS Installation (Recommended)
 
-The easiest way to install Charge Cheapest is via HACS with the custom integration:
+The easiest way to install Charge Cheapest is via HACS:
 
-#### Step 1: Install Prerequisites via HACS
+#### Step 1: Install Charge Cheapest Integration
 
-1. Open HACS in Home Assistant
-2. Go to **Automation** section
+1. Ensure prerequisites are installed (see links above)
+2. In HACS, go to **Integrations**
 3. Click the three-dot menu and select **Custom repositories**
-4. Add `https://github.com/TheFes/cheapest-energy-hours` as a **Template** category
-5. Search for "cheapest-energy-hours" and install it
+4. Add this repository URL as an **Integration** category
+5. Search for "Tibber Cheapest Charging" and install it
 6. Restart Home Assistant
 
-#### Step 2: Install Charge Cheapest Integration
-
-1. In HACS, go to **Integrations**
-2. Click the three-dot menu and select **Custom repositories**
-3. Add this repository URL as an **Integration** category
-4. Search for "Tibber Cheapest Charging" and install it
-5. Restart Home Assistant
-
-#### Step 3: Configure the Integration
+#### Step 2: Configure the Integration
 
 1. Go to **Settings** > **Devices & Services**
 2. Click **Add Integration**
@@ -101,7 +54,7 @@ The integration will automatically:
 - Register internal automations
 - Create a dashboard in your sidebar
 
-#### Step 4: Customize (Optional)
+#### Step 3: Customize (Optional)
 
 - **Dashboard**: The auto-generated dashboard is fully yours to customize or delete
 - **Options**: Go to the integration settings to modify schedules, targets, or recreate the dashboard
@@ -114,16 +67,9 @@ For users who prefer the traditional blueprint approach:
 <details>
 <summary>Click to expand manual installation steps</summary>
 
-#### Step 1: Install cheapest-energy-hours Macro
+#### Step 1: Copy Packages Folder
 
-1. Open HACS in Home Assistant
-2. Go to **Automation** section
-3. Click the three-dot menu and select **Custom repositories**
-4. Add `https://github.com/TheFes/cheapest-energy-hours` as a **Template** category
-5. Search for "cheapest-energy-hours" and install it
-6. Restart Home Assistant
-
-#### Step 2: Copy Packages Folder
+Ensure prerequisites are installed first (see links above).
 
 1. Download this repository or clone it
 2. Copy the entire `packages/` folder to your Home Assistant `config/` directory
@@ -137,7 +83,7 @@ For users who prefer the traditional blueprint approach:
    └── ...
    ```
 
-#### Step 3: Add Packages Include
+#### Step 2: Add Packages Include
 
 Add the following to your `configuration.yaml`:
 
@@ -148,13 +94,13 @@ homeassistant:
 
 If you already have a `homeassistant:` section, just add the `packages:` line under it.
 
-#### Step 4: Restart Home Assistant
+#### Step 3: Restart Home Assistant
 
 1. Go to **Settings** > **System** > **Restart**
 2. Click **Restart** and wait for Home Assistant to reload
 3. All helper entities will be created automatically
 
-#### Step 5: Import Dashboard
+#### Step 4: Import Dashboard
 
 1. Go to **Settings** > **Dashboards**
 2. Click **Add Dashboard** and create a new dashboard (e.g., "Battery Charging")
@@ -166,7 +112,7 @@ If you already have a `homeassistant:` section, just add the `packages:` line un
 8. Copy and paste the contents of `dashboards/charge_cheapest.yaml`
 9. Click **Save** and then **Done**
 
-#### Step 6: Configure Entity IDs
+#### Step 5: Configure Entity IDs
 
 1. Open your new Battery Charging dashboard
 2. Navigate to the **Configuration** tab
@@ -176,7 +122,7 @@ If you already have a `homeassistant:` section, just add the `packages:` line un
    - **Battery Charging Switch**: e.g., `switch.battery_charging`
 4. The validation indicators will turn green when entities are correctly configured
 
-#### Step 7: Import Blueprint
+#### Step 6: Import Blueprint
 
 1. Go to **Settings** > **Automations & Scenes** > **Blueprints**
 2. Click **Import Blueprint**
@@ -186,7 +132,7 @@ If you already have a `homeassistant:` section, just add the `packages:` line un
    ```
 4. Click **Preview** and then **Import Blueprint**
 
-#### Step 8: Create Automation from Blueprint
+#### Step 7: Create Automation from Blueprint
 
 1. Go to **Settings** > **Automations & Scenes** > **Automations**
 2. Click **Create Automation** > **Use Blueprint**

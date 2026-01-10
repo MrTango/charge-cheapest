@@ -4,7 +4,11 @@ This file provides guidance when working with code in this repository.
 
 ## Project Overview
 
-A Home Assistant integration/tool for finding the cheapest electricity hours using Tibber price data.
+A Home Assistant integration for finding the cheapest electricity hours using Tibber price data.
+
+## Repository
+
+https://github.com/MrTango/charge-cheapest
 
 ## Commands
 
