@@ -1,0 +1,9 @@
+# Services for Tibber Cheapest Charging integration
+
+recreate_dashboard:
+  name: Recreate Dashboard
+  description: >-
+    Deletes the existing Charge Cheapest dashboard and creates a fresh one
+    with the default configuration. Use this to restore the dashboard to
+    its original state after customization.
+  fields: {}

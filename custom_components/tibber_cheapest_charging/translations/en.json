@@ -1,0 +1,193 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Required Entity Selection",
+        "description": "Select the required entities for battery charging automation. These entities must be configured and available.",
+        "data": {
+          "battery_soc_sensor": "Battery SOC Sensor",
+          "battery_charging_switch": "Battery Charging Switch",
+          "price_sensor": "Tibber Price Sensor"
+        },
+        "data_description": {
+          "battery_soc_sensor": "Sensor that reports the current battery state of charge (percentage)",
+          "battery_charging_switch": "Switch that controls battery charging on/off",
+          "price_sensor": "Tibber sensor with today/tomorrow price attributes"
+        }
+      },
+      "optional_entities": {
+        "title": "Optional Entity Selection",
+        "description": "Optionally select additional entities for advanced features. Leave empty if not needed.",
+        "data": {
+          "solar_forecast_sensor": "Solar Forecast Sensor",
+          "battery_capacity_sensor": "Battery Capacity Sensor",
+          "battery_charging_power": "Charging Power Input"
+        },
+        "data_description": {
+          "solar_forecast_sensor": "Sensor providing daily solar production forecast (kWh)",
+          "battery_capacity_sensor": "Sensor reporting battery capacity (Wh or kWh)",
+          "battery_charging_power": "Input number for charger wattage (used for duration calculation)"
+        }
+      },
+      "schedule": {
+        "title": "Schedule Configuration",
+        "description": "Configure charging schedules and SOC targets for night, day, and evening peak periods.",
+        "data": {
+          "night_start_time": "Night Schedule Start",
+          "night_end_time": "Night Schedule End",
+          "night_target_soc": "Night Target SOC",
+          "day_schedule_enabled": "Enable Day Schedule",
+          "day_start_time": "Day Schedule Start",
+          "day_end_time": "Day Schedule End",
+          "day_target_soc": "Day Target SOC",
+          "evening_peak_start": "Evening Peak Start",
+          "evening_peak_end": "Evening Peak End",
+          "evening_peak_target_soc": "Evening Peak Target SOC"
+        },
+        "data_description": {
+          "night_start_time": "When the night charging window begins",
+          "night_end_time": "When the night charging window ends (next day)",
+          "night_target_soc": "Target battery percentage for night charging",
+          "day_schedule_enabled": "Enable secondary charging window during the day",
+          "day_start_time": "When the day charging window begins",
+          "day_end_time": "When the day charging window ends",
+          "day_target_soc": "Target battery percentage for day charging",
+          "evening_peak_start": "When expensive evening peak period begins",
+          "evening_peak_end": "When expensive evening peak period ends",
+          "evening_peak_target_soc": "Minimum battery percentage before evening peak"
+        }
+      }
+    },
+    "error": {
+      "entity_required": "This entity is required",
+      "entity_not_found": "Entity not found in Home Assistant",
+      "entity_unavailable": "Entity is unavailable or unknown",
+      "schedule_conflict": "Day schedule end time must be before evening peak start time",
+      "tibber_not_configured": "Tibber integration is not configured",
+      "unknown": "An unknown error occurred"
+    },
+    "abort": {
+      "already_configured": "Integration is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Tibber Cheapest Charging",
+        "description": "Adjust charging settings. Changes apply immediately without restart.",
+        "data": {
+          "night_target_soc": "Night Target SOC",
+          "day_target_soc": "Day Target SOC",
+          "evening_peak_target_soc": "Evening Peak Target SOC",
+          "night_start_time": "Night Schedule Start",
+          "night_end_time": "Night Schedule End",
+          "day_schedule_enabled": "Enable Day Schedule",
+          "day_start_time": "Day Schedule Start",
+          "day_end_time": "Day Schedule End",
+          "evening_peak_start": "Evening Peak Start",
+          "evening_peak_end": "Evening Peak End",
+          "notify_charging_scheduled": "Notify When Scheduled",
+          "notify_charging_started": "Notify When Started",
+          "notify_charging_completed": "Notify When Completed",
+          "notify_charging_skipped": "Notify When Skipped",
+          "notify_charging_error": "Notify On Error",
+          "notify_emergency_charging": "Notify On Emergency Charging",
+          "solar_forecast_enabled": "Enable Solar Forecast",
+          "forecast_mode_automatic": "Automatic Forecast Mode",
+          "morning_consumption_kwh": "Morning Consumption (kWh)",
+          "soc_offset_kwh": "SOC Offset Adjustment (kWh)",
+          "minimum_soc_floor": "Minimum SOC Floor",
+          "failure_behavior": "Failure Behavior",
+          "charging_duration_hours": "Charging Duration (Fallback)",
+          "default_charge_duration": "Default Charge Duration",
+          "recreate_dashboard": "Recreate Dashboard"
+        },
+        "data_description": {
+          "night_target_soc": "Target battery percentage for night charging (0-100%)",
+          "day_target_soc": "Target battery percentage for day charging (0-100%)",
+          "evening_peak_target_soc": "Minimum battery percentage before evening peak (20-100%)",
+          "night_start_time": "When the night charging window begins",
+          "night_end_time": "When the night charging window ends (next day)",
+          "day_schedule_enabled": "Enable secondary charging window during the day",
+          "day_start_time": "When the day charging window begins",
+          "day_end_time": "When the day charging window ends",
+          "evening_peak_start": "When expensive evening peak period begins",
+          "evening_peak_end": "When expensive evening peak period ends",
+          "notify_charging_scheduled": "Send notification when charging is scheduled",
+          "notify_charging_started": "Send notification when charging starts",
+          "notify_charging_completed": "Send notification when charging completes",
+          "notify_charging_skipped": "Send notification when charging is skipped",
+          "notify_charging_error": "Send notification when an error occurs",
+          "notify_emergency_charging": "Send notification for emergency charging",
+          "solar_forecast_enabled": "Use solar forecast for dynamic SOC targets",
+          "forecast_mode_automatic": "Automatically apply forecast (otherwise shows recommendation)",
+          "morning_consumption_kwh": "Expected energy consumption before solar production",
+          "soc_offset_kwh": "Adjustment offset for SOC calculation tuning",
+          "minimum_soc_floor": "Minimum SOC target regardless of forecast",
+          "failure_behavior": "Action when price data is unavailable",
+          "charging_duration_hours": "Fallback charging duration in hours",
+          "default_charge_duration": "Default charging duration for fallback mode",
+          "recreate_dashboard": "Check to recreate the dashboard with default settings"
+        }
+      }
+    },
+    "error": {
+      "schedule_conflict": "Day schedule end time must be before evening peak start time"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charging_status": {
+        "name": "Charging Status",
+        "state": {
+          "idle": "Idle",
+          "scheduled": "Scheduled",
+          "charging": "Charging",
+          "disabled": "Disabled",
+          "error": "Error"
+        }
+      },
+      "current_price": {
+        "name": "Current Price"
+      },
+      "next_window": {
+        "name": "Next Charging Window"
+      },
+      "recommended_soc": {
+        "name": "Recommended SOC"
+      },
+      "price_range": {
+        "name": "Price Range Today"
+      },
+      "estimated_savings": {
+        "name": "Estimated Savings Today"
+      },
+      "charging_duration": {
+        "name": "Charging Duration"
+      },
+      "target_soc": {
+        "name": "Target SOC"
+      }
+    },
+    "binary_sensor": {
+      "is_charging": {
+        "name": "Is Charging"
+      },
+      "is_cheap_hour": {
+        "name": "Is Cheap Hour"
+      },
+      "prices_available_tomorrow": {
+        "name": "Prices Available Tomorrow"
+      },
+      "system_ready": {
+        "name": "System Ready"
+      }
+    }
+  },
+  "services": {
+    "recreate_dashboard": {
+      "name": "Recreate Dashboard",
+      "description": "Deletes the existing Charge Cheapest dashboard and creates a fresh one with the default configuration."
+    }
+  }
+}
