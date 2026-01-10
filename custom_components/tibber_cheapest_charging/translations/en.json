@@ -73,7 +73,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configure Tibber Cheapest Charging",
+        "title": "Configure Charge Cheapest",
         "description": "Adjust charging settings. Changes apply immediately without restart.",
         "data": {
           "night_target_soc": "Night Target SOC",

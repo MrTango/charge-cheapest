@@ -25,9 +25,7 @@ A Home Assistant custom integration that automatically charges your battery duri
 
 ## Installation
 
-### Option 1: HACS Installation (Recommended)
-
-The easiest way to install Charge Cheapest is via HACS:
+Install via HACS:
 
 #### Step 1: Install Charge Cheapest Integration
 
@@ -35,14 +33,14 @@ The easiest way to install Charge Cheapest is via HACS:
 2. In HACS, go to **Integrations**
 3. Click the three-dot menu and select **Custom repositories**
 4. Add this repository URL as an **Integration** category
-5. Search for "Tibber Cheapest Charging" and install it
+5. Search for "Charge Cheapest" and install it
 6. Restart Home Assistant
 
 #### Step 2: Configure the Integration
 
 1. Go to **Settings** > **Devices & Services**
 2. Click **Add Integration**
-3. Search for "Tibber Cheapest Charging"
+3. Search for "Charge Cheapest"
 4. Follow the setup wizard:
    - **Step 1**: Select your battery SOC sensor, charging switch, and Tibber price sensor
    - **Step 2**: Optionally select solar forecast sensor and battery capacity sensor
@@ -59,94 +57,6 @@ The integration will automatically:
 - **Dashboard**: The auto-generated dashboard is fully yours to customize or delete
 - **Options**: Go to the integration settings to modify schedules, targets, or recreate the dashboard
 - **YAML**: Advanced users can also configure via `configuration.yaml` (see YAML Configuration below)
-
-### Option 2: Manual Installation (Legacy)
-
-For users who prefer the traditional blueprint approach:
-
-<details>
-<summary>Click to expand manual installation steps</summary>
-
-#### Step 1: Copy Packages Folder
-
-Ensure prerequisites are installed first (see links above).
-
-1. Download this repository or clone it
-2. Copy the entire `packages/` folder to your Home Assistant `config/` directory
-3. Your structure should look like:
-   ```
-   config/
-   ├── packages/
-   │   └── cheapest_battery_charging/
-   │       └── cheapest_battery_charging.yaml
-   ├── configuration.yaml
-   └── ...
-   ```
-
-#### Step 2: Add Packages Include
-
-Add the following to your `configuration.yaml`:
-
-```yaml
-homeassistant:
-  packages: !include_dir_named packages
-```
-
-If you already have a `homeassistant:` section, just add the `packages:` line under it.
-
-#### Step 3: Restart Home Assistant
-
-1. Go to **Settings** > **System** > **Restart**
-2. Click **Restart** and wait for Home Assistant to reload
-3. All helper entities will be created automatically
-
-#### Step 4: Import Dashboard
-
-1. Go to **Settings** > **Dashboards**
-2. Click **Add Dashboard** and create a new dashboard (e.g., "Battery Charging")
-3. Open the new dashboard
-4. Click the three-dot menu in the top right
-5. Select **Edit Dashboard**
-6. Click the three-dot menu again and select **Raw configuration editor**
-7. Delete any existing content
-8. Copy and paste the contents of `dashboards/charge_cheapest.yaml`
-9. Click **Save** and then **Done**
-
-#### Step 5: Configure Entity IDs
-
-1. Open your new Battery Charging dashboard
-2. Navigate to the **Configuration** tab
-3. Enter your entity IDs in the configuration section:
-   - **Tibber Price Sensor**: e.g., `sensor.electricity_price`
-   - **Battery SOC Sensor**: e.g., `sensor.battery_soc`
-   - **Battery Charging Switch**: e.g., `switch.battery_charging`
-4. The validation indicators will turn green when entities are correctly configured
-
-#### Step 6: Import Blueprint
-
-1. Go to **Settings** > **Automations & Scenes** > **Blueprints**
-2. Click **Import Blueprint**
-3. Paste this URL:
-   ```
-   https://github.com/your-username/charge-cheapest/blob/main/blueprints/automation/charge_cheapest.yaml
-   ```
-4. Click **Preview** and then **Import Blueprint**
-
-#### Step 7: Create Automation from Blueprint
-
-1. Go to **Settings** > **Automations & Scenes** > **Automations**
-2. Click **Create Automation** > **Use Blueprint**
-3. Select **Charge Cheapest**
-4. Configure the automation:
-   - Select your **Tibber Price Sensor**
-   - Select your **Battery Charging Switch**
-   - Select your **Battery SOC Sensor**
-   - Select your **Battery Capacity Sensor**
-   - Select `input_number.battery_charging_power` for **Charging Power Setting**
-   - Adjust schedule times and targets as needed
-5. Click **Save**
-
-</details>
 
 ## Configuration
 
@@ -279,10 +189,9 @@ For overnight windows (e.g., 23:00-06:00), the macro:
 
 **Solution:**
 
-1. Navigate to the Configuration tab in the dashboard
-2. Verify all entity IDs are entered correctly
-3. Check that the entities exist in **Settings** > **Devices & Services** > **Entities**
-4. Entity IDs are case-sensitive and must match exactly
+1. Go to integration options and verify entity selections are correct
+2. Check that the entities exist in **Settings** > **Devices & Services** > **Entities**
+3. Ensure selected entities are not in "unavailable" state
 
 ### Price Data Unavailable
 
@@ -295,48 +204,27 @@ For overnight windows (e.g., 23:00-06:00), the macro:
 3. Check the `binary_sensor.charge_cheapest_prices_available` entity
 4. Consider using `use_default_window` failure behavior as a fallback
 
-### Dashboard Import Issues
+### Dashboard Issues
 
-**Problem:** Dashboard fails to import or shows errors.
-
-**Solution:**
-
-1. Ensure you're using the Raw configuration editor (not the UI editor)
-2. Delete all existing content before pasting
-3. Check for YAML syntax errors (proper indentation)
-4. Verify all required custom cards are installed (ApexCharts is optional)
-
-### Helpers Not Created
-
-**Problem:** Input helpers don't appear after restart.
+**Problem:** Dashboard not appearing or shows errors.
 
 **Solution:**
 
-1. Verify the packages folder is in the correct location (`config/packages/`)
-2. Check that `configuration.yaml` has the packages include
-3. Check Home Assistant logs for YAML parsing errors
-4. Ensure the YAML file doesn't have syntax errors
-
-### ApexCharts Not Displaying
-
-**Problem:** Price chart shows as empty or with errors.
-
-**Solution:**
-
-1. ApexCharts is optional - the dashboard includes a fallback history graph
-2. To install ApexCharts: HACS > Frontend > Search "ApexCharts" > Install
-3. Clear browser cache after installing custom cards
+1. Use "Recreate Dashboard" button in integration options to regenerate
+2. ApexCharts is optional - the dashboard includes a fallback history graph
+3. To install ApexCharts: HACS > Frontend > Search "ApexCharts" > Install
+4. Clear browser cache after installing custom cards
 
 ### Charging Not Starting
 
-**Problem:** Automation triggers but charging doesn't start.
+**Problem:** Charging doesn't start during scheduled window.
 
 **Solution:**
 
-1. Check that `input_boolean.charge_cheapest_enabled` is on
+1. Check integration is enabled in Settings > Devices & Services
 2. Verify the battery switch entity is correct and responsive
 3. Check if current SOC is already at or above target
-4. Review automation trace in **Settings** > **Automations** > (your automation) > **Traces**
+4. Check Home Assistant logs for error messages
 
 ## Project Structure
 
@@ -358,18 +246,9 @@ charge-cheapest/
 │       ├── services.yaml                   # Service definitions
 │       └── translations/
 │           └── en.json                     # English translations
-├── blueprints/
-│   └── automation/
-│       └── charge_cheapest.yaml            # Legacy blueprint
-├── dashboards/
-│   └── charge_cheapest.yaml                # Lovelace dashboard template
-├── packages/
-│   └── cheapest_battery_charging/
-│       └── cheapest_battery_charging.yaml  # Legacy package with helpers
 ├── tests/                                  # Test suite
 ├── hacs.json                               # HACS repository config
 ├── info.md                                 # HACS store description
-├── package.json
 └── README.md
 ```
 
@@ -404,29 +283,9 @@ The test suite validates:
 
 ## Entities Reference
 
-The following entities are created automatically when using the custom integration (HACS install) or the legacy package installation.
+The following entities are created automatically by the integration.
 
-### Input Helpers Created (Legacy Package Only)
-
-| Entity                                        | Type     | Description                  |
-| --------------------------------------------- | -------- | ---------------------------- |
-| `input_text.charge_cheapest_price_sensor_id`  | text     | Price sensor entity ID       |
-| `input_text.charge_cheapest_soc_sensor_id`    | text     | Battery SOC sensor entity ID |
-| `input_text.charge_cheapest_switch_id`        | text     | Battery switch entity ID     |
-| `input_text.solar_forecast_storage`           | text     | Solar forecast data storage  |
-| `input_number.battery_charging_power`         | number   | Charging power in watts      |
-| `input_number.user_soc_target`                | number   | Target SOC percentage        |
-| `input_number.solar_panel_azimuth`            | number   | Solar panel azimuth          |
-| `input_number.solar_panel_tilt`               | number   | Solar panel tilt             |
-| `input_number.solar_peak_power_kwp`           | number   | Solar system peak power      |
-| `input_boolean.charge_cheapest_enabled`       | boolean  | Master enable toggle         |
-| `input_boolean.charge_cheapest_force_now`     | boolean  | Force charge override        |
-| `input_boolean.charge_cheapest_skip_next`     | boolean  | Skip next charge             |
-| `input_select.charge_cheapest_mode`           | select   | Charging mode selection      |
-| `input_datetime.charge_cheapest_manual_start` | datetime | Manual start time            |
-| `input_datetime.charge_cheapest_manual_end`   | datetime | Manual end time              |
-
-### Sensors (Integration and Legacy Package)
+### Sensors
 
 | Entity                                   | Description               |
 | ---------------------------------------- | ------------------------- |
@@ -439,7 +298,7 @@ The following entities are created automatically when using the custom integrati
 | `sensor.charge_cheapest_hours_today`     | Hours charged today       |
 | `sensor.charge_cheapest_count_today`     | Charge sessions today     |
 
-### Binary Sensors (Integration and Legacy Package)
+### Binary Sensors
 
 | Entity                                           | Description             |
 | ------------------------------------------------ | ----------------------- |
@@ -447,13 +306,6 @@ The following entities are created automatically when using the custom integrati
 | `binary_sensor.charge_cheapest_is_cheap_hour`    | Current hour is cheap   |
 | `binary_sensor.charge_cheapest_prices_available` | Tomorrow data available |
 | `binary_sensor.charge_cheapest_ready`            | All entities configured |
-
-### Utility Meters (Legacy Package Only)
-
-| Entity                                       | Description           |
-| -------------------------------------------- | --------------------- |
-| `utility_meter.charge_cheapest_cost_daily`   | Daily cost tracking   |
-| `utility_meter.charge_cheapest_cost_monthly` | Monthly cost tracking |
 
 ## License
 

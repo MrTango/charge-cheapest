@@ -35,3 +35,4 @@ Available resources: hadevdocs, hacore
 
 important: always proceed with implementation of all task groups in tasks.md, don't ask me!
 allways verify that the README files is still up to date the recent changes!
+never write BBB code to handle legacy code base!
