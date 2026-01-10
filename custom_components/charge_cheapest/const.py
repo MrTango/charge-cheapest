@@ -1,9 +1,9 @@
-"""Constants for the Tibber Cheapest Charging integration."""
+"""Constants for the Charge Cheapest integration."""
 
 from typing import Final
 
 # Domain
-DOMAIN: Final = "tibber_cheapest_charging"
+DOMAIN: Final = "charge_cheapest"
 
 # Platforms
 PLATFORMS: Final = ["sensor", "binary_sensor"]
@@ -133,7 +133,7 @@ DASHBOARD_URL_PATH: Final = "charge-cheapest"
 DASHBOARD_TITLE: Final = "Charge Cheapest"
 
 # Device info
-DEVICE_MANUFACTURER: Final = "Tibber Cheapest Charging"
+DEVICE_MANUFACTURER: Final = "Charge Cheapest"
 DEVICE_MODEL: Final = "Smart Battery Charging"
 
 # Attributes

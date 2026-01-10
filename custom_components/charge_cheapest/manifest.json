@@ -1,5 +1,5 @@
 {
-  "domain": "tibber_cheapest_charging",
+  "domain": "charge_cheapest",
   "name": "Charge Cheapest",
   "version": "1.0.0",
   "documentation": "https://github.com/your-username/charge-cheapest",

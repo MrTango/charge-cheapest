@@ -1,4 +1,4 @@
-"""Tests for Tibber Cheapest Charging config flow."""
+"""Tests for Charge Cheapest config flow."""
 
 from __future__ import annotations
 

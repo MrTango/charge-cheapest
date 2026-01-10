@@ -1,4 +1,4 @@
-"""Config flow for Tibber Cheapest Charging integration."""
+"""Config flow for Charge Cheapest integration."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def _validate_entity_exists(hass: HomeAssistant, entity_id: str) -> str | None:
 
 
 class TibberCheapestChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Tibber Cheapest Charging."""
+    """Handle a config flow for Charge Cheapest."""
 
     VERSION = 1
 
@@ -204,7 +204,7 @@ class TibberCheapestChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN)
             if not errors:
                 self._data.update(user_input)
                 return self.async_create_entry(
-                    title="Tibber Cheapest Charging",
+                    title="Charge Cheapest",
                     data=self._data,
                 )
 
@@ -272,7 +272,7 @@ class TibberCheapestChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN)
         self._abort_if_unique_id_configured()
 
         return self.async_create_entry(
-            title="Tibber Cheapest Charging (YAML)",
+            title="Charge Cheapest (YAML)",
             data=import_config,
         )
 
@@ -286,7 +286,7 @@ class TibberCheapestChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN)
 
 
 class TibberCheapestChargingOptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow for Tibber Cheapest Charging."""
+    """Handle options flow for Charge Cheapest."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""

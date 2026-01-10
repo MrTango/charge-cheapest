@@ -1,4 +1,4 @@
-"""Tests for Tibber Cheapest Charging entity platforms."""
+"""Tests for Charge Cheapest entity platforms."""
 
 from __future__ import annotations
 
@@ -200,9 +200,9 @@ class TestDeviceInfo:
     def test_device_info_structure(self):
         """Test that device info has required fields."""
         device_info = {
-            "identifiers": {("tibber_cheapest_charging", "test_entry_id")},
-            "name": "Tibber Cheapest Charging",
-            "manufacturer": "Tibber Cheapest Charging",
+            "identifiers": {("charge_cheapest", "test_entry_id")},
+            "name": "Charge Cheapest",
+            "manufacturer": "Charge Cheapest",
             "model": "Smart Battery Charging",
             "sw_version": "1.0.0",
         }

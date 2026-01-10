@@ -1,4 +1,4 @@
-"""Fixtures for Tibber Cheapest Charging integration tests."""
+"""Fixtures for Charge Cheapest integration tests."""
 
 from __future__ import annotations
 

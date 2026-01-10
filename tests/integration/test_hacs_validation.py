@@ -19,7 +19,7 @@ class TestHacsValidation:
         """Test that manifest.json has all HACS-required fields."""
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:
@@ -40,7 +40,7 @@ class TestHacsValidation:
             assert field in manifest, f"Missing required field: {field}"
 
         # Check specific values
-        assert manifest["domain"] == "tibber_cheapest_charging"
+        assert manifest["domain"] == "charge_cheapest"
         assert manifest["iot_class"] == "cloud_polling"
         assert "tibber" in manifest["dependencies"]
 
@@ -60,7 +60,7 @@ class TestHacsValidation:
         # homeassistant minimum version should match manifest
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:
@@ -73,7 +73,7 @@ class TestHacsValidation:
         """Test that integration version format is valid semver."""
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:
@@ -92,7 +92,7 @@ class TestHacsValidation:
         """Test that manifest has config_flow enabled."""
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:
@@ -104,7 +104,7 @@ class TestHacsValidation:
         """Test that translations file exists and is valid JSON."""
         translations_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/translations/en.json",
+            "../../custom_components/charge_cheapest/translations/en.json",
         )
 
         assert os.path.exists(translations_path)
@@ -130,7 +130,7 @@ class TestIntegrationStructure:
         """Test that all required integration files exist."""
         base_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging",
+            "../../custom_components/charge_cheapest",
         )
 
         required_files = [
@@ -154,7 +154,7 @@ class TestIntegrationStructure:
         """Test that const.py defines DOMAIN correctly by parsing file content."""
         const_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/const.py",
+            "../../custom_components/charge_cheapest/const.py",
         )
 
         with open(const_path) as f:
@@ -162,9 +162,9 @@ class TestIntegrationStructure:
 
         # Check DOMAIN is defined with correct value
         assert 'DOMAIN' in content
-        assert 'tibber_cheapest_charging' in content
+        assert 'charge_cheapest' in content
 
         # Verify the actual DOMAIN assignment - look for DOMAIN: Final = "value"
         domain_match = re.search(r'DOMAIN:\s*Final\s*=\s*"([^"]+)"', content)
         assert domain_match is not None, "DOMAIN definition not found in const.py"
-        assert domain_match.group(1) == "tibber_cheapest_charging"
+        assert domain_match.group(1) == "charge_cheapest"

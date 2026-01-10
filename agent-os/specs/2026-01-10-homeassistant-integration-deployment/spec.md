@@ -12,7 +12,7 @@ Convert the existing "Charge Cheapest" blueprint and packages into a HACS-compat
 ## Specific Requirements
 
 **HACS-Compatible Integration Structure**
-- Create standard `custom_components/tibber_cheapest_charging/` directory structure
+- Create standard `custom_components/charge_cheapest/` directory structure
 - Include `manifest.json` with HACS-required fields: domain, name, version, documentation, dependencies, codeowners, iot_class
 - Set `iot_class` to `cloud_polling` (for Tibber price data) and list `tibber` as a dependency
 - Include `hacs.json` at repository root with `content_in_root: false` pointing to custom_components path
@@ -29,7 +29,7 @@ Convert the existing "Charge Cheapest" blueprint and packages into a HACS-compat
 - Store configuration in ConfigEntry for persistence across restarts
 
 **YAML Configuration Support**
-- Support identical configuration options via `configuration.yaml` under `tibber_cheapest_charging:` key
+- Support identical configuration options via `configuration.yaml` under `charge_cheapest:` key
 - Parse YAML config in `__init__.py` async_setup and create ConfigEntry programmatically
 - No additional power-user options beyond config flow - maintain feature parity
 - Document YAML schema in integration documentation

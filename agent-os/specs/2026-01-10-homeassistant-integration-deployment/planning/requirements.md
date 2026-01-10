@@ -124,7 +124,7 @@ N/A
 ### Technical Considerations
 
 **Integration Structure:**
-- Standard Home Assistant custom integration format (`custom_components/tibber_cheapest_charging/`)
+- Standard Home Assistant custom integration format (`custom_components/charge_cheapest/`)
 - Python 3.11+ compatibility
 - Config flow and options flow implementation
 - Manifest with HACS compatibility

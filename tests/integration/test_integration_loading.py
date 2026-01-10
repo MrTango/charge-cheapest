@@ -1,4 +1,4 @@
-"""Tests for Tibber Cheapest Charging integration loading."""
+"""Tests for Charge Cheapest integration loading."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ class TestIntegrationFiles:
         """Test that __init__.py exists."""
         init_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/__init__.py",
+            "../../custom_components/charge_cheapest/__init__.py",
         )
 
         assert os.path.exists(init_path)
@@ -27,7 +27,7 @@ class TestIntegrationFiles:
         """Test that __init__.py defines async_setup function."""
         init_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/__init__.py",
+            "../../custom_components/charge_cheapest/__init__.py",
         )
 
         with open(init_path) as f:
@@ -39,7 +39,7 @@ class TestIntegrationFiles:
         """Test that __init__.py defines async_setup_entry function."""
         init_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/__init__.py",
+            "../../custom_components/charge_cheapest/__init__.py",
         )
 
         with open(init_path) as f:
@@ -51,7 +51,7 @@ class TestIntegrationFiles:
         """Test that __init__.py defines async_unload_entry function."""
         init_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/__init__.py",
+            "../../custom_components/charge_cheapest/__init__.py",
         )
 
         with open(init_path) as f:
@@ -63,7 +63,7 @@ class TestIntegrationFiles:
         """Test that __init__.py defines PLATFORMS list."""
         init_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/__init__.py",
+            "../../custom_components/charge_cheapest/__init__.py",
         )
 
         with open(init_path) as f:
@@ -81,7 +81,7 @@ class TestManifest:
         """Test that manifest lists tibber as dependency."""
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:
@@ -93,19 +93,19 @@ class TestManifest:
         """Test that manifest has correct domain."""
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:
             manifest = json.load(f)
 
-        assert manifest.get("domain") == "tibber_cheapest_charging"
+        assert manifest.get("domain") == "charge_cheapest"
 
     def test_manifest_has_correct_iot_class(self):
         """Test that manifest has correct iot_class."""
         manifest_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/manifest.json",
+            "../../custom_components/charge_cheapest/manifest.json",
         )
 
         with open(manifest_path) as f:

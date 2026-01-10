@@ -1,4 +1,4 @@
-"""End-to-end integration tests for Tibber Cheapest Charging."""
+"""End-to-end integration tests for Charge Cheapest."""
 
 from __future__ import annotations
 
@@ -189,7 +189,7 @@ class TestDashboardServiceExecution:
         """Test that service is defined with correct structure."""
         services_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/services.yaml",
+            "../../custom_components/charge_cheapest/services.yaml",
         )
 
         with open(services_path) as f:

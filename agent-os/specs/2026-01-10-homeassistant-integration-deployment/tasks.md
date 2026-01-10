@@ -18,13 +18,13 @@ This task breakdown covers converting the existing "Charge Cheapest" blueprint a
     - Test `async_setup_entry` creates ConfigEntry correctly
     - Test `async_unload_entry` cleans up properly
     - Test integration fails gracefully when Tibber not configured
-  - [x] 1.2 Create `custom_components/tibber_cheapest_charging/` directory structure
+  - [x] 1.2 Create `custom_components/charge_cheapest/` directory structure
     - Create `__init__.py` with `async_setup` and `async_setup_entry` functions
     - Create `const.py` with domain, platforms, and configuration constants
     - Create empty `coordinator.py`, `config_flow.py`, `sensor.py`, `binary_sensor.py`
   - [x] 1.3 Create `manifest.json` with HACS-required fields
-    - Set `domain` to `tibber_cheapest_charging`
-    - Set `name` to `Tibber Cheapest Charging`
+    - Set `domain` to `charge_cheapest`
+    - Set `name` to `Charge Cheapest`
     - Set `version` to `1.0.0`
     - Set `iot_class` to `cloud_polling`
     - Add `tibber` to `dependencies` array
@@ -42,7 +42,7 @@ This task breakdown covers converting the existing "Charge Cheapest" blueprint a
     - Implement `async_unload_entry` for cleanup
     - Add Tibber integration dependency check at setup time
   - [x] 1.6 Create `const.py` with all configuration constants
-    - Define `DOMAIN = "tibber_cheapest_charging"`
+    - Define `DOMAIN = "charge_cheapest"`
     - Define configuration keys matching blueprint inputs (entity IDs, schedule times, SOC targets)
     - Define default values for all optional configuration
     - Define notification preference keys
@@ -495,7 +495,7 @@ Recommended implementation sequence:
 
 **Integration Output Structure:**
 ```
-custom_components/tibber_cheapest_charging/
+custom_components/charge_cheapest/
   __init__.py          # Integration setup
   manifest.json        # HACS metadata
   config_flow.py       # Config and options flows

@@ -1,4 +1,4 @@
-"""Tests for Tibber Cheapest Charging dashboard auto-registration."""
+"""Tests for Charge Cheapest dashboard auto-registration."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class TestDashboardStructure:
         """Test that dashboard has Overview, Statistics, and Configuration views."""
         dashboard_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/dashboard.py",
+            "../../custom_components/charge_cheapest/dashboard.py",
         )
 
         # Read and check the file contains expected views
@@ -39,7 +39,7 @@ class TestDashboardStructure:
         """Test that dashboard references correct entity IDs."""
         dashboard_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/dashboard.py",
+            "../../custom_components/charge_cheapest/dashboard.py",
         )
 
         with open(dashboard_path) as f:
@@ -56,7 +56,7 @@ class TestDashboardStructure:
         """Test that dashboard includes ApexCharts conditional card."""
         dashboard_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/dashboard.py",
+            "../../custom_components/charge_cheapest/dashboard.py",
         )
 
         with open(dashboard_path) as f:
@@ -81,7 +81,7 @@ class TestDashboardService:
         """Test that services.yaml file exists."""
         services_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/services.yaml",
+            "../../custom_components/charge_cheapest/services.yaml",
         )
 
         assert os.path.exists(services_path)
@@ -90,7 +90,7 @@ class TestDashboardService:
         """Test that services.yaml defines recreate_dashboard service."""
         services_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/services.yaml",
+            "../../custom_components/charge_cheapest/services.yaml",
         )
 
         with open(services_path) as f:
@@ -106,7 +106,7 @@ class TestDashboardCards:
         """Test that overview view has status entities card."""
         dashboard_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/dashboard.py",
+            "../../custom_components/charge_cheapest/dashboard.py",
         )
 
         with open(dashboard_path) as f:
@@ -118,7 +118,7 @@ class TestDashboardCards:
         """Test that statistics view has savings summary card."""
         dashboard_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/dashboard.py",
+            "../../custom_components/charge_cheapest/dashboard.py",
         )
 
         with open(dashboard_path) as f:
@@ -130,7 +130,7 @@ class TestDashboardCards:
         """Test that configuration view has validation status card."""
         dashboard_path = os.path.join(
             os.path.dirname(__file__),
-            "../../custom_components/tibber_cheapest_charging/dashboard.py",
+            "../../custom_components/charge_cheapest/dashboard.py",
         )
 
         with open(dashboard_path) as f:

@@ -1,4 +1,4 @@
-"""Dashboard auto-registration for Tibber Cheapest Charging integration."""
+"""Dashboard auto-registration for Charge Cheapest integration."""
 
 from __future__ import annotations
 
@@ -261,14 +261,14 @@ DASHBOARD_CONFIG: dict[str, Any] = {
                         "1. Verify your price sensor entity ID\n"
                         "2. Verify your battery SOC sensor entity ID\n"
                         "3. Verify your battery charging switch entity ID\n\n"
-                        "Go to Settings > Devices & Services > Tibber Cheapest Charging to reconfigure.",
+                        "Go to Settings > Devices & Services > Charge Cheapest to reconfigure.",
                     },
                 },
                 # System Information
                 {
                     "type": "markdown",
                     "title": "System Information",
-                    "content": "**Tibber Cheapest Charging**\n\n"
+                    "content": "**Charge Cheapest**\n\n"
                     "*Version:* 1.0.0\n\n"
                     "*Status:* {{ 'Connected' if is_state('binary_sensor.charge_cheapest_system_ready', 'on') else 'Configuration Required' }}\n\n"
                     "*Charging Status:* {{ states('sensor.charge_cheapest_status') }}\n\n"

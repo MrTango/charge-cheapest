@@ -1,4 +1,4 @@
-# Services for Tibber Cheapest Charging integration
+# Services for Charge Cheapest integration
 
 recreate_dashboard:
   name: Recreate Dashboard

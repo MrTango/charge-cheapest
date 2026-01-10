@@ -110,7 +110,7 @@ All notifications default to enabled:
 Advanced users can configure the integration via `configuration.yaml` instead of the UI:
 
 ```yaml
-tibber_cheapest_charging:
+charge_cheapest:
   # Required entities
   battery_soc_sensor: sensor.battery_soc
   battery_charging_switch: switch.battery_charging
@@ -234,7 +234,7 @@ charge-cheapest/
 │   └── workflows/
 │       └── hacs.yaml                       # HACS validation workflow
 ├── custom_components/
-│   └── tibber_cheapest_charging/           # Custom integration
+│   └── charge_cheapest/                    # Custom integration
 │       ├── __init__.py                     # Integration setup
 │       ├── manifest.json                   # HACS metadata
 │       ├── config_flow.py                  # Config and options flows

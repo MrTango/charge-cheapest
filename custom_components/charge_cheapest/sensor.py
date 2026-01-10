@@ -1,4 +1,4 @@
-"""Sensor platform for Tibber Cheapest Charging integration."""
+"""Sensor platform for Charge Cheapest integration."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ from .coordinator import TibberCheapestChargingCoordinator
 
 @dataclass(frozen=True)
 class TibberCheapestChargingSensorEntityDescription(SensorEntityDescription):
-    """Describes Tibber Cheapest Charging sensor entity."""
+    """Describes Charge Cheapest sensor entity."""
 
     value_fn: str | None = None
     attr_fn: dict[str, str] | None = None
@@ -111,7 +111,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Tibber Cheapest Charging sensor entities."""
+    """Set up Charge Cheapest sensor entities."""
     coordinator: TibberCheapestChargingCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
@@ -127,7 +127,7 @@ async def async_setup_entry(
 class TibberCheapestChargingSensor(
     CoordinatorEntity[TibberCheapestChargingCoordinator], SensorEntity
 ):
-    """Representation of a Tibber Cheapest Charging sensor."""
+    """Representation of a Charge Cheapest sensor."""
 
     entity_description: TibberCheapestChargingSensorEntityDescription
 

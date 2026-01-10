@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator for Tibber Cheapest Charging integration."""
+"""DataUpdateCoordinator for Charge Cheapest integration."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TibberCheapestChargingCoordinator(DataUpdateCoordinator):
-    """Coordinator for Tibber Cheapest Charging data updates."""
+    """Coordinator for Charge Cheapest data updates."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
@@ -120,7 +120,7 @@ class TibberCheapestChargingCoordinator(DataUpdateCoordinator):
         # Device info for entities
         self.device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": "Tibber Cheapest Charging",
+            "name": "Charge Cheapest",
             "manufacturer": DEVICE_MANUFACTURER,
             "model": DEVICE_MODEL,
             "sw_version": "1.0.0",
@@ -187,7 +187,7 @@ class TibberCheapestChargingCoordinator(DataUpdateCoordinator):
             return data
 
         except Exception as err:
-            _LOGGER.error("Error updating Tibber Cheapest Charging data: %s", err)
+            _LOGGER.error("Error updating Charge Cheapest data: %s", err)
             raise UpdateFailed(f"Error fetching data: {err}") from err
 
     async def _fetch_price_data(self, price_sensor: str) -> dict[str, Any]:

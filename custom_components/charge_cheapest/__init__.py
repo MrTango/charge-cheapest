@@ -1,11 +1,11 @@
-"""Tibber Cheapest Charging integration for Home Assistant.
+"""Charge Cheapest integration for Home Assistant.
 
 This integration enables automatic battery charging during the cheapest electricity
 hours based on Tibber price data. It supports configurable night and day charging
 schedules with independent SOC targets.
 
 YAML Configuration Example:
-    tibber_cheapest_charging:
+    charge_cheapest:
       battery_soc_sensor: sensor.battery_soc
       battery_charging_switch: switch.battery_charging
       price_sensor: sensor.tibber_prices
@@ -223,7 +223,7 @@ def _convert_time_to_string(time_value: Any) -> str:
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the Tibber Cheapest Charging integration via YAML configuration."""
+    """Set up the Charge Cheapest integration via YAML configuration."""
     hass.data.setdefault(DOMAIN, {})
 
     if DOMAIN not in config:
@@ -277,7 +277,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Tibber Cheapest Charging from a config entry."""
+    """Set up Charge Cheapest from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
     # Validate Tibber integration is configured

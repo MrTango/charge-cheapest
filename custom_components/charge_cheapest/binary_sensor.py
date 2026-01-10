@@ -1,4 +1,4 @@
-"""Binary sensor platform for Tibber Cheapest Charging integration."""
+"""Binary sensor platform for Charge Cheapest integration."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from .coordinator import TibberCheapestChargingCoordinator
 
 @dataclass(frozen=True)
 class TibberCheapestChargingBinarySensorEntityDescription(BinarySensorEntityDescription):
-    """Describes Tibber Cheapest Charging binary sensor entity."""
+    """Describes Charge Cheapest binary sensor entity."""
 
     value_fn: str | None = None
 
@@ -71,7 +71,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Tibber Cheapest Charging binary sensor entities."""
+    """Set up Charge Cheapest binary sensor entities."""
     coordinator: TibberCheapestChargingCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
@@ -87,7 +87,7 @@ async def async_setup_entry(
 class TibberCheapestChargingBinarySensor(
     CoordinatorEntity[TibberCheapestChargingCoordinator], BinarySensorEntity
 ):
-    """Representation of a Tibber Cheapest Charging binary sensor."""
+    """Representation of a Charge Cheapest binary sensor."""
 
     entity_description: TibberCheapestChargingBinarySensorEntityDescription
 
